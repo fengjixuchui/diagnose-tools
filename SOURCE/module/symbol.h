@@ -5,7 +5,7 @@
  *
  * 作者: Baoyou Xie <baoyou.xie@linux.alibaba.com>
  *
- * License terms: GNU General Public License (GPL) version 2
+ * License terms: GNU General Public License (GPL) version 3
  *
  */
 
@@ -96,6 +96,14 @@ extern void (*orig_put_files_struct)(struct files_struct *files);
 struct dentry;
 struct inode;
 extern struct dentry * (*orig_d_find_any_alias)(struct inode *inode);
+extern int (*orig_task_statm)(struct mm_struct *mm,
+			 unsigned long *shared, unsigned long *text,
+			 unsigned long *data, unsigned long *resident);
+
+extern unsigned int (*orig_stack_trace_save_tsk)(struct task_struct *task,
+				  unsigned long *store, unsigned int size,
+				  unsigned int skipnr);
+extern unsigned int (*orig_stack_trace_save_user)(unsigned long *store, unsigned int size);
 
 int alidiagnose_symbols_init(void);
 void alidiagnose_symbols_exit(void);

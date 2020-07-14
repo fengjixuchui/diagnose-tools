@@ -138,7 +138,6 @@ utilization() {
 	eval "$diag_ utilization --deactivate --activate='style=1 sample=1' --settings"
 	sleep 1
 	eval "$diag_ utilization --report --deactivate"
-
 	eval "$diag_ utilization --deactivate --activate='style=2 sample=1' --settings"
 	sleep 1
 	eval "$diag_ utilization --report --deactivate"
@@ -263,16 +262,14 @@ fs_cache() {
 	eval "$diag_ fs-cache --deactivate --activate --report --settings"
 }
 
-function call_sub_cmd()
-{
+call_sub_cmd() {
 	func=$1
 	func=${func//-/_}
 	shift 1
 	eval "$func $*"
 }
 
-function main()
-{
+main() {
 	if [ $# -eq 0 ]; then
 		for key in ${!__all_case[@]}; do
 			SUB_CMD=${__all_case[$key]}

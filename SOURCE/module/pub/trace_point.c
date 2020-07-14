@@ -5,7 +5,7 @@
  *
  * 作者: Baoyou Xie <baoyou.xie@linux.alibaba.com>
  *
- * License terms: GNU General Public License (GPL) version 2
+ * License terms: GNU General Public License (GPL) version 3
  *
  */
 
@@ -85,7 +85,11 @@ int diag_unregister_cb_sys_enter(cb_sys_enter cb, void *data)
 	up_write(&sys_enter_sem);
 
 	if (found) {
+#if KERNEL_VERSION(5, 0, 0) <= LINUX_VERSION_CODE
+		synchronize_rcu();
+#else
 		synchronize_sched();
+#endif
 		kfree(found);
 	}
 	return 0;

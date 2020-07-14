@@ -5,7 +5,7 @@
  *
  * 作者: Baoyou Xie <baoyou.xie@linux.alibaba.com>
  *
- * License terms: GNU General Public License (GPL) version 2
+ * License terms: GNU General Public License (GPL) version 3
  *
  */
 
@@ -285,6 +285,11 @@ int sched_delay_syscall(struct pt_regs *regs, long id)
 	}
 
 	return ret;
+}
+
+long diag_ioctl_sched_delay(unsigned int cmd, unsigned long arg)
+{
+	return -EINVAL;
 }
 
 int diag_sched_delay_init(void)

@@ -5,10 +5,11 @@
  *
  * 作者: Baoyou Xie <baoyou.xie@linux.alibaba.com>
  *
- * License terms: GNU General Public License (GPL) version 2
+ * License terms: GNU General Public License (GPL) version 3
  *
  */
 
+#include <linux/version.h>
 #include <linux/hrtimer.h>
 #include <linux/kernel.h>
 #include <linux/kallsyms.h>
@@ -27,7 +28,9 @@
 #include <linux/rbtree.h>
 #include <linux/cpu.h>
 #include <linux/syscalls.h>
-
+#if KERNEL_VERSION(4, 19, 0) <= LINUX_VERSION_CODE
+#include <linux/sched/mm.h>
+#endif
 #include <asm/irq_regs.h>
 
 #include "internal.h"
@@ -40,8 +43,9 @@
 #include "uapi/utilization.h"
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 33)) || (KERNEL_VERSION(4, 20, 0) <= LINUX_VERSION_CODE) \
-	|| defined(CENTOS_3_10_693_2_2) || defined(CENTOS_3_10_957) || defined(CENTOS_3_10_957_21_3) \
-	|| defined(CENTOS_3_10_862) || defined(CENTOS_3_10_1062_9_1)
+	|| defined(CENTOS_3_10_693) || defined(CENTOS_3_10_957) \
+	|| defined(CENTOS_3_10_862) || defined(CENTOS_3_10_1062) \
+	|| defined(CENTOS_3_10_1127)
 /**
  * 只支持7u
  */
@@ -50,12 +54,10 @@
 #if KERNEL_VERSION(4, 9, 0) <= LINUX_VERSION_CODE
 #define diag_record_stamp ali_reserved5
 #define diag_exec ali_reserved6
-#define diag_pages ali_reserved7
 #define diag_wild ali_reserved8
 #elif KERNEL_VERSION(3, 10, 0) <= LINUX_VERSION_CODE
 #define diag_record_stamp rh_reserved5
 #define diag_exec rh_reserved6
-#define diag_pages rh_reserved7
 #define diag_wild rh_reserved8
 #endif
 
@@ -81,7 +83,6 @@ static void __maybe_unused clean_data(void)
 
 	for_each_process(tsk) {
 		tsk->diag_exec = 0;
-		tsk->diag_pages = 0;
 		tsk->diag_wild = 0;
 	}
 
@@ -92,7 +93,9 @@ static void dump_task_info(struct task_struct *tsk)
 {
 	struct utilization_detail *detail;
 	unsigned long flags;
-	unsigned long exec, pages, wild;
+	unsigned long exec = 0, pages = 0, wild = 0;
+	unsigned long size = 0, resident = 0, shared = 0, text = 0, data = 0;
+	struct mm_struct *mm;
 
 	if (!utilization_settings.activated || !utilization_settings.sample) {
 		return;
@@ -101,8 +104,15 @@ static void dump_task_info(struct task_struct *tsk)
 		return;
 
 	detail = &diag_percpu_context[smp_processor_id()]->utilization_detail;
+
+	mm = get_task_mm(tsk);
+	if (mm) {
+		size = orig_task_statm(mm, &shared, &text, &data, &resident);
+		pages = resident;
+		mmput(mm);
+	}
+
 	exec = xchg(&tsk->diag_exec, 0);
-	pages = xchg(&tsk->diag_pages, 0);
 	wild = xchg(&tsk->diag_wild, 0);
 	if (exec == 0 && pages == 0 && wild == 0)
 		return;
@@ -189,21 +199,6 @@ static void trace_sched_switch_hit(struct rq *rq, struct task_struct *prev,
 	tsk->diag_record_stamp = now;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0)
-static void trace_mm_page_alloc_hit(void *ignore, struct page *page,
-		unsigned int order, gfp_t gfp_flags, int migratetype)
-#else
-static void trace_mm_page_alloc_hit(struct page *page,
-		unsigned int order, gfp_t gfp_flags, int migratetype)
-#endif
-{
-	if (in_interrupt() || in_atomic() || irqs_disabled()
-       || ((gfp_flags & GFP_ATOMIC) == GFP_ATOMIC) || ((gfp_flags & GFP_HIGHUSER) != GFP_HIGHUSER))
-		return;
-
-	xadd(&current->diag_pages, 2 << order);
-}
-
 #if KERNEL_VERSION(4, 9, 0) <= LINUX_VERSION_CODE
 static void trace_sched_process_fork_hit(void *__data, struct task_struct *parent, struct task_struct *child)
 #elif KERNEL_VERSION(3, 10, 0) <= LINUX_VERSION_CODE
@@ -214,7 +209,6 @@ static void trace_sched_process_fork_hit(struct task_struct *parent, struct task
 {
 	child->diag_record_stamp = 0;
 	child->diag_exec = 0;
-	child->diag_pages = 0;
 	child->diag_wild = 0;
 }
 
@@ -294,7 +288,6 @@ static int __activate_utilization(void)
 
 	clean_data();
 
-	hook_tracepoint("mm_page_alloc", trace_mm_page_alloc_hit, NULL);
 	hook_tracepoint("sched_switch", trace_sched_switch_hit, NULL);
 	hook_tracepoint("sched_process_fork", trace_sched_process_fork_hit, NULL);
 	hook_tracepoint("sched_process_exit", trace_sched_process_exit_hit, NULL);
@@ -327,7 +320,6 @@ static int __deactivate_utilization(void)
 	int ret = 0;
 
 	unhook_tracepoint("sched_switch", trace_sched_switch_hit, NULL);
-	unhook_tracepoint("mm_page_alloc", trace_mm_page_alloc_hit, NULL);
 	unhook_tracepoint("sched_process_fork", trace_sched_process_fork_hit, NULL);
 	unhook_tracepoint("sched_process_exit", trace_sched_process_exit_hit, NULL);
 
@@ -460,6 +452,82 @@ int utilization_syscall(struct pt_regs *regs, long id)
 		break;
 	default:
 		ret = -ENOSYS;
+		break;
+	}
+
+	return ret;
+}
+
+long diag_ioctl_utilization(unsigned int cmd, unsigned long arg)
+{
+	int ret = -EINVAL;
+	struct diag_utilization_settings settings;
+	struct diag_ioctl_dump_param dump_param;
+	struct diag_ioctl_utilization_isolate isolate_param;
+	int sample;
+
+	switch (cmd) {
+	case CMD_UTILIZATION_SET:
+		if (utilization_settings.activated) {
+			ret = -EBUSY;
+		} else {
+			ret = copy_from_user(&settings, (void *)arg, sizeof(struct diag_utilization_settings));
+			if (!ret) {
+				if (settings.cpus[0]) {
+					str_to_cpumask(settings.cpus, &utilization_cpumask);
+				} else {
+					utilization_cpumask = *cpu_possible_mask;
+				}
+				utilization_settings = settings;
+			}
+		}
+		break;
+	case CMD_UTILIZATION_SETTINGS:
+		settings = utilization_settings;
+		cpumask_to_str(&utilization_cpumask, settings.cpus, 512);
+		ret = copy_to_user((void *)arg, &settings, sizeof(struct diag_utilization_settings));
+		break;
+	case CMD_UTILIZATION_DUMP:
+		ret = copy_from_user(&dump_param, (void *)arg, sizeof(struct diag_ioctl_dump_param));
+
+		if (!utilization_alloced) {
+			ret = -EINVAL;
+		} else if (!ret) {
+			do_dump();
+			ret = copy_to_user_variant_buffer(&utilization_variant_buffer,
+					dump_param.user_ptr_len, dump_param.user_buf, dump_param.user_buf_len);
+			record_dump_cmd("utilization");
+		}
+		break;
+	case CMD_UTILIZATION_ISOLATE:
+		ret = copy_from_user(&isolate_param, (void *)arg, sizeof(struct diag_ioctl_utilization_isolate));
+		
+		if (!ret) {
+			if (isolate_param.user_buf_len >= CGROUP_NAME_LEN)
+				isolate_param.user_buf_len = CGROUP_NAME_LEN - 1;
+			if (isolate_param.cpu >= num_possible_cpus())
+				ret = -EINVAL;
+			else {
+				char *isolate = per_cpu(isolate_cgroup_name, isolate_param.cpu);
+				struct cpuacct *cpuacct;
+				struct cgroup *cgroup;
+				
+				ret = copy_from_user(isolate, isolate_param.user_buf, isolate_param.user_buf_len);
+				isolate[CGROUP_NAME_LEN - 1] = 0;
+
+				cpuacct = diag_find_cpuacct_name(isolate);
+				cgroup = cpuacct_to_cgroup(cpuacct);
+				per_cpu(isolate_cgroup_ptr, isolate_param.cpu) = cgroup;
+			}
+		}
+		break;
+	case CMD_UTILIZATION_SAMPLE:
+		ret = copy_from_user(&sample, (void *)arg, sizeof(int));
+		if (!ret) {
+			utilization_settings.sample = sample;
+		}
+		break;
+	default:
 		break;
 	}
 

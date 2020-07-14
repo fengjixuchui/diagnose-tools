@@ -5,7 +5,7 @@
  *
  * 作者: Baoyou Xie <baoyou.xie@linux.alibaba.com>
  *
- * License terms: GNU General Public License (GPL) version 2
+ * License terms: GNU General Public License (GPL) version 3
  *
  */
 
@@ -271,7 +271,7 @@ static int symbol_walk_callback(void *data, const char *name,
 {
 	if (strcmp(name, "kallsyms_lookup_name") == 0) {
 		__kallsyms_lookup_name = (void *)addr;
-		return 0;
+		return addr;
 	}
 
 	return 0;
@@ -284,7 +284,7 @@ static void diag_cb_sys_enter(void *data, struct pt_regs *regs, long id)
 
 		down(&controller_sem);
 		if (id == DIAG_VERSION) {
-			ret = diag_VERSION;
+			ret = DIAG_VERSION;
 		} else if (id >= DIAG_BASE_SYSCALL_PUPIL
 		   && id < DIAG_BASE_SYSCALL_PUPIL + DIAG_SYSCALL_INTERVAL) {
 			ret = pupil_syscall(regs, id);
@@ -400,7 +400,7 @@ static int __init diagnosis_init(void)
 	int i;
 
 	ret = kallsyms_on_each_symbol(symbol_walk_callback, NULL);
-	if (ret || !__kallsyms_lookup_name) {
+	if (!ret || !__kallsyms_lookup_name) {
 		ret = -EINVAL;
 		goto out;
 	}
@@ -461,11 +461,17 @@ static int __init diagnosis_init(void)
 	if (ret)
 		goto out_xby_test;
 
+	ret = diag_dev_init();
+	if (ret)
+		goto out_dev;
+
 	hook_tracepoint("sys_enter", trace_sys_enter_hit, NULL);
 	printk("diagnose-tools in diagnosis_init\n");
 
 	return 0;
 
+out_dev:
+	diag_xby_test_exit();
 out_xby_test:
 	diag_fs_exit();
 out_fs:
@@ -502,6 +508,7 @@ static void __exit diagnosis_exit(void)
 	diag_linux_proc_exit();
 	msleep(20);
 
+	diag_dev_cleanup();
 	unhook_tracepoint("sys_enter", trace_sys_enter_hit, NULL);
 	synchronize_sched();
 

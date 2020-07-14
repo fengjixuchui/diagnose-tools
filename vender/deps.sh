@@ -1,7 +1,6 @@
 #!/bin/bash
 
-if [ ! -f `dirname $0`/"deps-vender.sh" ]; then
-	touch `dirname $0`/deps-vender.sh
+if [ ! -f `dirname $0`/"module.mk" ]; then
+        touch `dirname $0`/module.mk
 fi
 
-sh `dirname $0`/deps-vender.sh

@@ -5,7 +5,7 @@
  *
  * 作者: Baoyou Xie <baoyou.xie@linux.alibaba.com>
  *
- * License terms: GNU General Public License (GPL) version 2
+ * License terms: GNU General Public License (GPL) version 3
  *
  */
 
@@ -13,12 +13,88 @@
 #define UAPI_DIAG_H
 
 #include <linux/ptrace.h>
+#include <linux/ioctl.h>
 
 struct pt_regs;
 
-
 #define XBY_VERSION					"diagnose-tools 2.0-rc1"
-#define diag_VERSION		((2 << 24) | (0 << 16) | 0x0001)
+#define DIAG_VERSION		((2 << 24) | (0 << 16) | 0x0001)
+
+#define DIAG_DEV_NAME "diagnose-tools"
+
+#define DIAG_IOCTL_TYPE_TEST 1
+#define DIAG_IOCTL_TYPE_VERSION (DIAG_IOCTL_TYPE_TEST + 1)
+#define DIAG_IOCTL_TYPE_PUPIL (DIAG_IOCTL_TYPE_VERSION + 1)
+#define DIAG_IOCTL_TYPE_RUN_TRACE (DIAG_IOCTL_TYPE_PUPIL + 1)
+#define DIAG_IOCTL_TYPE_LOAD_MONITOR (DIAG_IOCTL_TYPE_RUN_TRACE + 1)
+#define DIAG_IOCTL_TYPE_PERF (DIAG_IOCTL_TYPE_LOAD_MONITOR + 1)
+#define DIAG_IOCTL_TYPE_EXIT_MONITOR (DIAG_IOCTL_TYPE_PERF + 1)
+#define DIAG_IOCTL_TYPE_TCP_RETRANS (DIAG_IOCTL_TYPE_EXIT_MONITOR + 1)
+#define DIAG_IOCTL_TYPE_RW_TOP (DIAG_IOCTL_TYPE_TCP_RETRANS + 1)
+#define DIAG_IOCTL_TYPE_SYS_DELAY (DIAG_IOCTL_TYPE_RW_TOP + 1)
+#define DIAG_IOCTL_TYPE_IRQ_DELAY (DIAG_IOCTL_TYPE_SYS_DELAY + 1)
+#define DIAG_IOCTL_TYPE_MUTEX_MONITOR (DIAG_IOCTL_TYPE_IRQ_DELAY + 1)
+#define DIAG_IOCTL_TYPE_UTILIZATION (DIAG_IOCTL_TYPE_MUTEX_MONITOR + 1)
+#define DIAG_IOCTL_TYPE_ALLOC_TOP (DIAG_IOCTL_TYPE_UTILIZATION + 1)
+#define DIAG_IOCTL_TYPE_DROP_PACKET (DIAG_IOCTL_TYPE_ALLOC_TOP + 1)
+#define DIAG_IOCTL_TYPE_FS_ORPHAN (DIAG_IOCTL_TYPE_DROP_PACKET + 1)
+#define DIAG_IOCTL_TYPE_EXEC_MONITOR (DIAG_IOCTL_TYPE_FS_ORPHAN + 1)
+#define DIAG_IOCTL_TYPE_FS_SHM (DIAG_IOCTL_TYPE_EXEC_MONITOR + 1)
+#define DIAG_IOCTL_TYPE_IRQ_STATS (DIAG_IOCTL_TYPE_FS_SHM + 1)
+#define DIAG_IOCTL_TYPE_KPROBE (DIAG_IOCTL_TYPE_IRQ_STATS + 1)
+#define DIAG_IOCTL_TYPE_MM_LEAK (DIAG_IOCTL_TYPE_KPROBE + 1)
+#define DIAG_IOCTL_TYPE_IRQ_TRACE (DIAG_IOCTL_TYPE_MM_LEAK + 1)
+#define DIAG_IOCTL_TYPE_SCHED_DELAY (DIAG_IOCTL_TYPE_IRQ_TRACE + 1)
+#define DIAG_IOCTL_TYPE_REBOOT (DIAG_IOCTL_TYPE_SCHED_DELAY + 1)
+#define DIAG_IOCTL_TYPE_PING_DELAY (DIAG_IOCTL_TYPE_REBOOT + 1)
+#define DIAG_IOCTL_TYPE_UPROBE (DIAG_IOCTL_TYPE_PING_DELAY + 1)
+#define DIAG_IOCTL_TYPE_SYS_COST (DIAG_IOCTL_TYPE_UPROBE + 1)
+#define DIAG_IOCTL_TYPE_FS_CACHE (DIAG_IOCTL_TYPE_SYS_COST + 1)
+#define DIAG_IOCTL_TYPE_HIGH_ORDER (DIAG_IOCTL_TYPE_FS_CACHE + 1)
+#define DIAG_IOCTL_TYPE_D (DIAG_IOCTL_TYPE_HIGH_ORDER + 1)
+#define DIAG_IOCTL_TYPE_END (DIAG_IOCTL_TYPE_D + 1)
+
+long diag_ioctl_sys_delay(unsigned int cmd, unsigned long arg);
+long diag_ioctl_sys_cost(unsigned int cmd, unsigned long arg);
+long diag_ioctl_sched_delay(unsigned int cmd, unsigned long arg);
+long diag_ioctl_irq_delay(unsigned int cmd, unsigned long arg);
+long diag_ioctl_irq_stats(unsigned int cmd, unsigned long arg);
+long diag_ioctl_irq_trace(unsigned int cmd, unsigned long arg);
+long diag_ioctl_load_monitor(unsigned int cmd, unsigned long arg);
+long diag_ioctl_run_trace(unsigned int cmd, unsigned long arg);
+long diag_ioctl_perf(unsigned int cmd, unsigned long arg);
+long diag_ioctl_kprobe(unsigned int cmd, unsigned long arg);
+long diag_ioctl_uprobe(unsigned int cmd, unsigned long arg);
+long diag_ioctl_utilization(unsigned int cmd, unsigned long arg);
+long diag_ioctl_exit_monitor(unsigned int cmd, unsigned long arg);
+long diag_ioctl_mutex_monitor(unsigned int cmd, unsigned long arg);
+long diag_ioctl_exec_monitor(unsigned int cmd, unsigned long arg);
+long diag_ioctl_alloc_top(unsigned int cmd, unsigned long arg);
+long diag_ioctl_high_order(unsigned int cmd, unsigned long arg);
+long diag_ioctl_drop_packet(unsigned int cmd, unsigned long arg);
+long diag_ioctl_tcp_retrans(unsigned int cmd, unsigned long arg);
+long diag_ioctl_ping_delay(unsigned int cmd, unsigned long arg);
+long diag_ioctl_rw_top(unsigned int cmd, unsigned long arg);
+long diag_ioctl_fs_shm(unsigned int cmd, unsigned long arg);
+long diag_ioctl_fs_orphan(unsigned int cmd, unsigned long arg);
+long diag_ioctl_fs_cache(unsigned int cmd, unsigned long arg);
+
+struct diag_ioctl_test {
+	int in;
+	int out;
+};
+
+#ifndef __KERNEL__
+#define __user
+#endif
+struct diag_ioctl_dump_param {
+	int __user *user_ptr_len;
+	size_t __user user_buf_len;
+	void __user *user_buf;
+};
+
+#define DIAG_IOCTL_TEST_IOCTL _IOWR(DIAG_IOCTL_TYPE_TEST, 1, struct diag_ioctl_test)
+#define DIAG_IOCTL_VERSION_ALL _IO(DIAG_IOCTL_TYPE_VERSION, 1)
 
 #define BACKTRACE_DEPTH 30
 #define DIAG_USER_STACK_SIZE (16 * 1024)
@@ -43,7 +119,7 @@ struct pt_regs;
 /**
  * 有几个被占用，从10开始
  */
-#define DIAG_VERSION (DIAG_BASE_SYSCALL + 10)
+#define DIAG_SYSCALL_VERSION (DIAG_BASE_SYSCALL + 10)
 /// 000
 #define DIAG_BASE_SYSCALL_PUPIL \
 	(DIAG_BASE_SYSCALL + DIAG_SYSCALL_INTERVAL)

@@ -5,7 +5,7 @@
  *
  * 作者: Baoyou Xie <baoyou.xie@linux.alibaba.com>
  *
- * License terms: GNU General Public License (GPL) version 2
+ * License terms: GNU General Public License (GPL) version 3
  *
  */
 
@@ -212,12 +212,18 @@ int high_order_syscall(struct pt_regs *regs, long id)
 		if (addr)
 			free_pages(addr, 3);
 		ret = 0;
+		break;
 	default:
 		ret = -ENOSYS;
 		break;
 	}
 
 	return ret;
+}
+
+long diag_ioctl_high_order(unsigned int cmd, unsigned long arg)
+{
+	return -EINVAL;
 }
 
 int diag_high_order_init(void)

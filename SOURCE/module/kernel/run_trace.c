@@ -5,7 +5,7 @@
  *
  * 作者: Baoyou Xie <baoyou.xie@linux.alibaba.com>
  *
- * License terms: GNU General Public License (GPL) version 2
+ * License terms: GNU General Public License (GPL) version 3
  *
  */
 
@@ -1069,6 +1069,11 @@ int run_trace_clear_syscall(unsigned int pid)
 	rcu_read_unlock();
 
 	return ret;
+}
+
+long diag_ioctl_run_trace(unsigned int cmd, unsigned long arg)
+{
+	return -EINVAL;
 }
 
 __maybe_unused static int uprobe_start_handler(struct uprobe_consumer *self, struct pt_regs *regs)

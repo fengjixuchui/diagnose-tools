@@ -5,7 +5,7 @@
  *
  * 作者: Baoyou Xie <baoyou.xie@linux.alibaba.com>
  *
- * License terms: GNU General Public License (GPL) version 2
+ * License terms: GNU General Public License (GPL) version 3
  *
  */
 
@@ -427,6 +427,11 @@ int irq_trace_syscall(struct pt_regs *regs, long id)
 	}
 
 	return ret;
+}
+
+long diag_ioctl_irq_trace(unsigned int cmd, unsigned long arg)
+{
+	return -EINVAL;
 }
 
 static int lookup_syms(void)

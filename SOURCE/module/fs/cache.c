@@ -5,7 +5,7 @@
  *
  * 作者: Baoyou Xie <baoyou.xie@linux.alibaba.com>
  *
- * License terms: GNU General Public License (GPL) version 2
+ * License terms: GNU General Public License (GPL) version 3
  *
  */
 
@@ -56,7 +56,7 @@
 #include "uapi/fs_cache.h"
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0) && LINUX_VERSION_CODE <= KERNEL_VERSION(4, 10, 0) \
-	&& !defined(CENTOS_3_10_514_26_2)
+	&& !defined(CENTOS_3_10_514)
 static atomic64_t diag_nr_running = ATOMIC64_INIT(0);
 struct diag_fs_cache_settings fs_cache_settings = {
 	.top = 100,
@@ -83,8 +83,8 @@ static void (*orig___iget)(struct inode *inode);
 static void (*orig_iterate_supers)(void (*f)(struct super_block *, void *), void *arg);
 #else
 static void (*orig_iterate_supers)(void (*f)(struct super_block *, void *), void *arg);
-#if !defined(CENTOS_3_10_862) && !defined(CENTOS_3_10_957_21_3) && !defined(CENTOS_3_10_1062_1_2) \
-	&& !defined(CENTOS_3_10_1062_9_1)
+#if !defined(CENTOS_3_10_862) && !defined(CENTOS_3_10_957) && !defined(CENTOS_3_10_1062) \
+	&& !defined(CENTOS_3_10_1127)
 static spinlock_t *orig_inode_sb_list_lock;
 #endif
 #endif
@@ -189,8 +189,8 @@ static void dump_sb(struct super_block *sb, void *arg)
 #else
 	struct inode *inode, *toput_inode = NULL;
 
-#if !defined(CENTOS_3_10_862) && !defined(CENTOS_3_10_957_21_3) && !defined(CENTOS_3_10_1062_1_2) \
-	&& !defined(CENTOS_3_10_1062_9_1)
+#if !defined(CENTOS_3_10_862) && !defined(CENTOS_3_10_957) && !defined(CENTOS_3_10_1062) \
+	&& !defined(CENTOS_3_10_1127)
 	spin_lock(orig_inode_sb_list_lock);
 #else
 	spin_lock(&sb->s_inode_list_lock);
@@ -204,8 +204,8 @@ static void dump_sb(struct super_block *sb, void *arg)
 		}
 		orig___iget(inode);
 		spin_unlock(&inode->i_lock);
-#if !defined(CENTOS_3_10_862) && !defined(CENTOS_3_10_957_21_3) && !defined(CENTOS_3_10_1062_1_2) \
-	&& !defined(CENTOS_3_10_1062_9_1)
+#if !defined(CENTOS_3_10_862) && !defined(CENTOS_3_10_957) && !defined(CENTOS_3_10_1062) \
+	&& !defined(CENTOS_3_10_1127)
 		spin_unlock(orig_inode_sb_list_lock);
 #else
 		spin_unlock(&sb->s_inode_list_lock);
@@ -215,15 +215,15 @@ static void dump_sb(struct super_block *sb, void *arg)
 
 		iput(toput_inode);
 		toput_inode = inode;
-#if !defined(CENTOS_3_10_862) && !defined(CENTOS_3_10_957_21_3) && !defined(CENTOS_3_10_1062_1_2) \
-	&& !defined(CENTOS_3_10_1062_9_1)
+#if !defined(CENTOS_3_10_862) && !defined(CENTOS_3_10_957) && !defined(CENTOS_3_10_1062) \
+	&& !defined(CENTOS_3_10_1127)
 		spin_lock(orig_inode_sb_list_lock);
 #else
 		spin_lock(&sb->s_inode_list_lock);
 #endif
 	}
-#if !defined(CENTOS_3_10_862) && !defined(CENTOS_3_10_957_21_3) && !defined(CENTOS_3_10_1062_1_2) \
-	&& !defined(CENTOS_3_10_1062_9_1)
+#if !defined(CENTOS_3_10_862) && !defined(CENTOS_3_10_957) && !defined(CENTOS_3_10_1062) \
+	&& !defined(CENTOS_3_10_1127)
 		spin_unlock(orig_inode_sb_list_lock);
 #else
 		spin_unlock(&sb->s_inode_list_lock);
@@ -315,8 +315,8 @@ static void drop_sb(struct super_block *sb, void *arg)
 #else
 	struct inode *inode, *toput_inode = NULL;
 
-#if !defined(CENTOS_3_10_862) && !defined(CENTOS_3_10_957_21_3) && !defined(CENTOS_3_10_1062_1_2) \
-	&& !defined(CENTOS_3_10_1062_9_1)
+#if !defined(CENTOS_3_10_862) && !defined(CENTOS_3_10_957) && !defined(CENTOS_3_10_1062) \
+	&& !defined(CENTOS_3_10_1127)
 	spin_lock(orig_inode_sb_list_lock);
 #else
 	spin_lock(&sb->s_inode_list_lock);
@@ -330,8 +330,8 @@ static void drop_sb(struct super_block *sb, void *arg)
 		}
 		orig___iget(inode);
 		spin_unlock(&inode->i_lock);
-#if !defined(CENTOS_3_10_862) && !defined(CENTOS_3_10_957_21_3) && !defined(CENTOS_3_10_1062_1_2) \
-	&& !defined(CENTOS_3_10_1062_9_1)
+#if !defined(CENTOS_3_10_862) && !defined(CENTOS_3_10_957) && !defined(CENTOS_3_10_1062) \
+	&& !defined(CENTOS_3_10_1127)
 		spin_unlock(orig_inode_sb_list_lock);
 #else
 		spin_unlock(&sb->s_inode_list_lock);
@@ -343,8 +343,8 @@ static void drop_sb(struct super_block *sb, void *arg)
 
 		iput(toput_inode);
 		toput_inode = inode;
-#if !defined(CENTOS_3_10_862) && !defined(CENTOS_3_10_957_21_3) && !defined(CENTOS_3_10_1062_1_2) \
-	&& !defined(CENTOS_3_10_1062_9_1)
+#if !defined(CENTOS_3_10_862) && !defined(CENTOS_3_10_957) && !defined(CENTOS_3_10_1062) \
+	&& !defined(CENTOS_3_10_1127)
 		spin_lock(orig_inode_sb_list_lock);
 #else
 		spin_lock(&sb->s_inode_list_lock);
@@ -353,8 +353,8 @@ static void drop_sb(struct super_block *sb, void *arg)
 		if (inode == arg)
 			break;
 	}
-#if !defined(CENTOS_3_10_862) && !defined(CENTOS_3_10_957_21_3) && !defined(CENTOS_3_10_1062_1_2) \
-	&& !defined(CENTOS_3_10_1062_9_1)
+#if !defined(CENTOS_3_10_862) && !defined(CENTOS_3_10_957) && !defined(CENTOS_3_10_1062) \
+	&& !defined(CENTOS_3_10_1127)
 	spin_unlock(orig_inode_sb_list_lock);
 #else
 	spin_unlock(&sb->s_inode_list_lock);
@@ -479,6 +479,11 @@ int fs_cache_syscall(struct pt_regs *regs, long id)
 	return ret;
 }
 
+long diag_ioctl_fs_cache(unsigned int cmd, unsigned long arg)
+{
+	return -EINVAL;
+}
+
 static int lookup_syms(void)
 {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 12, 0)
@@ -486,8 +491,8 @@ static int lookup_syms(void)
 #else
 	LOOKUP_SYMS(iterate_supers);
 
-#if !defined(CENTOS_3_10_862) && !defined(CENTOS_3_10_957_21_3) && !defined(CENTOS_3_10_1062_1_2) \
-	&& !defined(CENTOS_3_10_1062_9_1)
+#if !defined(CENTOS_3_10_862) && !defined(CENTOS_3_10_957) && !defined(CENTOS_3_10_1062) \
+	&& !defined(CENTOS_3_10_1127)
 	LOOKUP_SYMS(inode_sb_list_lock);
 #endif
 

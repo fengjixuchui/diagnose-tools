@@ -5,7 +5,7 @@
  *
  * 作者: Baoyou Xie <baoyou.xie@linux.alibaba.com>
  *
- * License terms: GNU General Public License (GPL) version 2
+ * License terms: GNU General Public License (GPL) version 3
  *
  */
 
@@ -205,6 +205,7 @@ static struct diagnose_func all_funcs[] {
 	{"test-md5", md5_main},
 	{"test-run-trace", test_run_trace_main},
 	{"sys-cost", sys_cost_main},
+	{"test", testcase_main},
 };
 
 int main(int argc, char* argv[])
@@ -212,14 +213,19 @@ int main(int argc, char* argv[])
 	unsigned int i;
 	diagnose_fp func = usage;
 	unsigned int version = -1;
+	int fd;
 
-	syscall(DIAG_VERSION, &version);
-	if (version != diag_VERSION && version != -1UL && version != 0xffffffffU) {
-		printf("严重警告，diagnose-tools工具与内核模块版本不匹配。\n");
-		printf("期望的版本号：%lx, 运行的模块版本号：%x\n",
-			(unsigned long)diag_VERSION,
-			version);
-		return -1;
+	fd = open("/dev/diagnose-tools", O_RDWR, 0);
+	if (fd > 0) {
+		version = ioctl(fd, DIAG_IOCTL_VERSION_ALL, 0);
+		close(fd);
+		if (version != DIAG_VERSION && version != -1UL && version != 0xffffffffU) {
+			printf("严重警告，diagnose-tools工具与内核模块版本不匹配。\n");
+			printf("期望的版本号：%lx, 运行的模块版本号：%x\n",
+				(unsigned long)DIAG_VERSION,
+				version);
+			return -1;
+		}
 	}
 
 	if (argc <= 1) {

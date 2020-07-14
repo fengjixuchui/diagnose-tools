@@ -17,24 +17,76 @@ ifeq ($(EXPERIENTIAL),1)
 	DIAG_EXTRA_CFLAGS += -DEXPERIENTIAL
 endif
 
-ifneq ($(findstring 3.10.0-862.el7.x86_64,$(KERNEL_BUILD_PATH)),)
-	DIAG_EXTRA_CFLAGS += -DCENTOS_3_10_862 -DCENTOS_7U
+ifneq ($(findstring el7.x86_64,$(KERNEL_BUILD_PATH)),)
+	DIAG_EXTRA_CFLAGS += -DCENTOS_7U
+
+	ifneq ($(findstring 3.10.0-293,$(KERNEL_BUILD_PATH)),)
+		DIAG_EXTRA_CFLAGS += -DCENTOS_3_10_293
+	endif
+
+	ifneq ($(findstring 3.10.0-514,$(KERNEL_BUILD_PATH)),)
+		DIAG_EXTRA_CFLAGS += -DCENTOS_3_10_514
+	endif
+
+	ifneq ($(findstring 3.10.0-693,$(KERNEL_BUILD_PATH)),)
+		DIAG_EXTRA_CFLAGS += -DCENTOS_3_10_693
+	endif
+
+	ifneq ($(findstring 3.10.0-957,$(KERNEL_BUILD_PATH)),)
+		DIAG_EXTRA_CFLAGS += -DCENTOS_3_10_957
+	endif
+
+	ifneq ($(findstring 3.10.0-1062,$(KERNEL_BUILD_PATH)),)
+                DIAG_EXTRA_CFLAGS += -DCENTOS_3_10_1062
+        endif
+
+	ifneq ($(findstring 3.10.0-1127,$(KERNEL_BUILD_PATH)),)
+		DIAG_EXTRA_CFLAGS += -DCENTOS_3_10_1127
+	endif
 endif
 
-ifneq ($(findstring 3.10.0-957.el7.x86_64,$(KERNEL_BUILD_PATH)),)
-	DIAG_EXTRA_CFLAGS += -DCENTOS_3_10_957 -DCENTOS_7U
+ifneq ($(findstring alios7.aarch64,$(KERNEL_BUILD_PATH)),)
+	DIAG_EXTRA_CFLAGS += -DDIAG_ARM64
 endif
+
+#ifneq ($(findstring 3.10.0-862.el7.x86_64,$(KERNEL_BUILD_PATH)),)
+#	DIAG_EXTRA_CFLAGS += -DCENTOS_3_10_862 -DCENTOS_7U
+#endif
+
+#ifneq ($(findstring 3.10.0-957.el7.x86_64,$(KERNEL_BUILD_PATH)),)
+#	DIAG_EXTRA_CFLAGS += -DCENTOS_3_10_957 -DCENTOS_7U
+#endif
 
 ifneq ($(findstring 3.10.0-957.21.3.el7.x86_64,$(KERNEL_BUILD_PATH)),)
-	DIAG_EXTRA_CFLAGS += -DCENTOS_3_10_957_21_3 -DCENTOS_7U
+	DIAG_EXTRA_CFLAGS += -DCENTOS_3_10_957_21_3
 endif
 
+ifneq ($(findstring 3.10.0-957.27.2.el7.x86_64,$(KERNEL_BUILD_PATH)),)
+	DIAG_EXTRA_CFLAGS += -DCENTOS_3_10_957_27_2
+endif
+
+#ifneq ($(findstring 3.10.0-1062.el7.x86_64,$(KERNEL_BUILD_PATH)),)
+#	DIAG_EXTRA_CFLAGS += -DCENTOS_3_10_1062 -DCENTOS_7U
+#endif
+
 ifneq ($(findstring 3.10.0-1062.1.2.el7.x86_64,$(KERNEL_BUILD_PATH)),)
-	DIAG_EXTRA_CFLAGS += -DCENTOS_3_10_1062_1_2 -DCENTOS_7U
+	DIAG_EXTRA_CFLAGS += -DCENTOS_3_10_1062_1_2
 endif
 
 ifneq ($(findstring 3.10.0-1062.9.1.el7.x86_64,$(KERNEL_BUILD_PATH)),)
-	DIAG_EXTRA_CFLAGS += -DCENTOS_3_10_1062_9_1 -DCENTOS_7U
+	DIAG_EXTRA_CFLAGS += -DCENTOS_3_10_1062_9_1
+endif
+
+#ifneq ($(findstring 3.10.0-1127.el7.x86_64,$(KERNEL_BUILD_PATH)),)
+#	DIAG_EXTRA_CFLAGS += -DCENTOS_3_10_1127
+#endif
+
+ifneq ($(findstring 3.10.0-1127.8.2.el7.x86_64,$(KERNEL_BUILD_PATH)),)
+	DIAG_EXTRA_CFLAGS += -DCENTOS_3_10_1127_8_2
+endif
+
+ifneq ($(findstring 3.10.0-1127.10.1.el7.x86_64,$(KERNEL_BUILD_PATH)),)
+	DIAG_EXTRA_CFLAGS += -DCENTOS_3_10_1127_10_1
 endif
 
 ifneq ($(KERNELRELEASE),)
@@ -49,7 +101,7 @@ ifneq ($(KERNELRELEASE),)
 		$(TARGET)-objs += pub/remote_stack.o
 	endif
 
-	$(TARGET)-objs += entry.o misc.o symbol.o mm_tree.o stack.o stub.o pupil.o
+	$(TARGET)-objs += entry.o chr_dev.o misc.o symbol.o mm_tree.o stack.o stub.o pupil.o
 	$(TARGET)-objs += kernel/kern_entry.o kernel/mutex.o kernel/load.o kernel/exit.o \
 			kernel/irq_stats.o kernel/irq_delay.o kernel/sys_delay.o \
 			kernel/exec.o kernel/perf.o kernel/run_trace.o kernel/irq_trace.o \
@@ -88,4 +140,5 @@ else
 	    rm -rf mm/*.o mm/*.mod.c mm/*.mod.o mm/*.ko* mm/Module.symvers mm/modules.order mm/.*.cmd
 	    rm -rf pub/*.o pub/*.mod.c pub/*.mod.o pub/*.ko* pub/Module.symvers pub/modules.order pub/.*.cmd
 	    rm -rf test/*.o test/*.mod.c test/*.mod.o test/*.ko* test/Module.symvers test/modules.order test/.*.cmd
+	    rm -rf .tmp_versions
 endif
