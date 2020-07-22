@@ -12,13 +12,7 @@
 #ifndef UAPI_EXIT_MONITOR_H
 #define UAPI_EXIT_MONITOR_H
 
-int exit_monitor_syscall(struct pt_regs *regs, long id);
-
-//#define DIAG_EXIT_MONITOR_ACTIVATE (DIAG_BASE_SYSCALL_EXIT_MONITOR)
-//#define DIAG_EXIT_MONITOR_DEACTIVATE (DIAG_EXIT_MONITOR_ACTIVATE + 1)
-#define DIAG_EXIT_MONITOR_SET (DIAG_BASE_SYSCALL_EXIT_MONITOR)
-#define DIAG_EXIT_MONITOR_SETTINGS (DIAG_EXIT_MONITOR_SET + 1)
-#define DIAG_EXIT_MONITOR_DUMP (DIAG_EXIT_MONITOR_SETTINGS + 1)
+#include <linux/ioctl.h>
 
 struct diag_exit_monitor_settings {
 	unsigned int activated;
@@ -52,4 +46,12 @@ struct exit_monitor_map {
 	unsigned long flags;
 	char file_name[255];
 };
+
+#define CMD_EXIT_MONITOR_SET (0)
+#define CMD_EXIT_MONITOR_SETTINGS (CMD_EXIT_MONITOR_SET + 1)
+#define CMD_EXIT_MONITOR_DUMP (CMD_EXIT_MONITOR_SETTINGS + 1)
+#define DIAG_IOCTL_EXIT_MONITOR_SET _IOWR(DIAG_IOCTL_TYPE_EXIT_MONITOR, CMD_EXIT_MONITOR_SET, struct diag_exit_monitor_settings)
+#define DIAG_IOCTL_EXIT_MONITOR_SETTINGS _IOWR(DIAG_IOCTL_TYPE_EXIT_MONITOR, CMD_EXIT_MONITOR_SETTINGS, struct diag_exit_monitor_settings)
+#define DIAG_IOCTL_EXIT_MONITOR_DUMP _IOWR(DIAG_IOCTL_TYPE_EXIT_MONITOR, CMD_EXIT_MONITOR_DUMP, struct diag_ioctl_dump_param)
+
 #endif /* UAPI_EXIT_MONITOR_H */

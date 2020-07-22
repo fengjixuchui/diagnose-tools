@@ -12,13 +12,7 @@
 #ifndef UAPI_RW_TOP_H
 #define UAPI_RW_TOP_H
 
-int rw_top_syscall(struct pt_regs *regs, long id);
-
-//#define DIAG_RW_TOP_ACTIVATE (DIAG_BASE_SYSCALL_RW_TOP)
-//#define DIAG_RW_TOP_DEACTIVATE (DIAG_RW_TOP_ACTIVATE + 1)
-#define DIAG_RW_TOP_SET (DIAG_BASE_SYSCALL_RW_TOP)
-#define DIAG_RW_TOP_SETTINGS (DIAG_RW_TOP_SET + 1)
-#define DIAG_RW_TOP_DUMP (DIAG_RW_TOP_SETTINGS + 1)
+#include <linux/ioctl.h>
 
 struct diag_rw_top_settings {
 	unsigned int activated;
@@ -50,5 +44,12 @@ struct rw_top_perf {
 	struct diag_user_stack_detail user_stack;
 	char path_name[DIAG_PATH_LEN];
 };
+
+#define CMD_RW_TOP_SET (0)
+#define CMD_RW_TOP_SETTINGS (CMD_RW_TOP_SET + 1)
+#define CMD_RW_TOP_DUMP (CMD_RW_TOP_SETTINGS + 1)
+#define DIAG_IOCTL_RW_TOP_SET _IOWR(DIAG_IOCTL_TYPE_RW_TOP, CMD_RW_TOP_SET, struct diag_rw_top_settings)
+#define DIAG_IOCTL_RW_TOP_SETTINGS _IOWR(DIAG_IOCTL_TYPE_RW_TOP, CMD_RW_TOP_SETTINGS, struct diag_rw_top_settings)
+#define DIAG_IOCTL_RW_TOP_DUMP _IOWR(DIAG_IOCTL_TYPE_RW_TOP, CMD_RW_TOP_DUMP, struct diag_ioctl_dump_param)
 
 #endif /* UAPI_RW_TOP_H */

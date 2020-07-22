@@ -232,25 +232,18 @@ static void jump_init(void)
 {
 }
 
-int perf_syscall(struct pt_regs *regs, long id)
+long diag_ioctl_perf(unsigned int cmd, unsigned long arg)
 {
-	int __user *user_ptr_len;
-	size_t __user user_buf_len;
-	void __user *user_buf;
 	int ret = 0;
 	static struct diag_perf_settings settings;
+	struct diag_ioctl_dump_param dump_param;
 
-	switch (id) {
-	case DIAG_PERF_SET:
-		user_buf = (void __user *)SYSCALL_PARAM1(regs);
-		user_buf_len = (size_t)SYSCALL_PARAM2(regs);
-
-		if (user_buf_len != sizeof(struct diag_perf_settings)) {
-			ret = -EINVAL;
-		} else if (perf_settings.activated) {
+	switch (cmd) {
+	case CMD_PERF_SET:
+		if (perf_settings.activated) {
 			ret = -EBUSY;
 		} else {
-			ret = copy_from_user(&settings, user_buf, user_buf_len);
+			ret = copy_from_user(&settings, (void *)arg, sizeof(struct diag_perf_settings));
 			if (!ret) {
 				if (settings.cpus[0]) {
 					str_to_cpumask(settings.cpus, &perf_cpumask);
@@ -262,29 +255,20 @@ int perf_syscall(struct pt_regs *regs, long id)
 			}
 		}
 		break;
-	case DIAG_PERF_SETTINGS:
-		user_buf = (void __user *)SYSCALL_PARAM1(regs);
-		user_buf_len = (size_t)SYSCALL_PARAM2(regs);
-
-		if (user_buf_len != sizeof(struct diag_perf_settings)) {
-			ret = -EINVAL;
-		} else {
-			settings = perf_settings;
-			cpumask_to_str(&perf_cpumask, settings.cpus, 512);
-			ret = copy_to_user(user_buf, &settings, user_buf_len);
-		}
+	case CMD_PERF_SETTINGS:
+		settings = perf_settings;
+		cpumask_to_str(&perf_cpumask, settings.cpus, 512);
+		ret = copy_to_user((void *)arg, &settings, sizeof(struct diag_perf_settings));
 		break;
-	case DIAG_PERF_DUMP:
-		user_ptr_len = (void __user *)SYSCALL_PARAM1(regs);
-		user_buf = (void __user *)SYSCALL_PARAM2(regs);
-		user_buf_len = (size_t)SYSCALL_PARAM3(regs);
+	case CMD_PERF_DUMP:
+		ret = copy_from_user(&dump_param, (void *)arg, sizeof(struct diag_ioctl_dump_param));
 
 		if (!perf_alloced) {
 			ret = -EINVAL;
-		} else {
+		} else if (!ret) {
 			perf_seq++;
 			ret = copy_to_user_variant_buffer(&perf_variant_buffer,
-					user_ptr_len, user_buf, user_buf_len);
+					dump_param.user_ptr_len, dump_param.user_buf, dump_param.user_buf_len);
 			record_dump_cmd("perf");
 		}
 		break;
@@ -294,11 +278,6 @@ int perf_syscall(struct pt_regs *regs, long id)
 	}
 
 	return ret;
-}
-
-long diag_ioctl_perf(unsigned int cmd, unsigned long arg)
-{
-	return -EINVAL;
 }
 
 int diag_kern_perf_init(void)

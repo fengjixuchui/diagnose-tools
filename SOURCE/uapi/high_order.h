@@ -12,14 +12,7 @@
 #ifndef UAPI_HIGH_ORDER_H
 #define UAPI_HIGH_ORDER_H
 
-int high_order_syscall(struct pt_regs *regs, long id);
-
-//#define DIAG_HIGH_ORDER_ACTIVATE (DIAG_BASE_SYSCALL_HIGH_ORDER)
-//#define DIAG_HIGH_ORDER_DEACTIVATE (DIAG_HIGH_ORDER_ACTIVATE + 1)
-#define DIAG_HIGH_ORDER_SET (DIAG_BASE_SYSCALL_HIGH_ORDER)
-#define DIAG_HIGH_ORDER_SETTINGS (DIAG_HIGH_ORDER_SET + 1)
-#define DIAG_HIGH_ORDER_DUMP (DIAG_HIGH_ORDER_SETTINGS + 1)
-#define DIAG_HIGH_ORDER_TEST (DIAG_HIGH_ORDER_DUMP + 1)
+#include <linux/ioctl.h>
 
 struct diag_high_order_settings {
 	unsigned int activated;
@@ -38,5 +31,14 @@ struct high_order_detail {
 	struct diag_kern_stack_detail kern_stack;
 	struct diag_user_stack_detail user_stack;
 };
+
+#define CMD_HIGH_ORDER_SET (0)
+#define CMD_HIGH_ORDER_SETTINGS (CMD_HIGH_ORDER_SET + 1)
+#define CMD_HIGH_ORDER_DUMP (CMD_HIGH_ORDER_SETTINGS + 1)
+#define CMD_HIGH_ORDER_TEST (CMD_HIGH_ORDER_DUMP + 1)
+#define DIAG_IOCTL_HIGH_ORDER_SET _IOWR(DIAG_IOCTL_TYPE_HIGH_ORDER, CMD_HIGH_ORDER_SET, struct diag_high_order_settings)
+#define DIAG_IOCTL_HIGH_ORDER_SETTINGS _IOWR(DIAG_IOCTL_TYPE_HIGH_ORDER, CMD_HIGH_ORDER_SETTINGS, struct diag_high_order_settings)
+#define DIAG_IOCTL_HIGH_ORDER_DUMP _IOWR(DIAG_IOCTL_TYPE_HIGH_ORDER, CMD_HIGH_ORDER_DUMP, struct diag_ioctl_dump_param)
+#define DIAG_IOCTL_HIGH_ORDER_TEST _IOWR(DIAG_IOCTL_TYPE_HIGH_ORDER, CMD_HIGH_ORDER_TEST, int)
 
 #endif /* UAPI_HIGH_ORDER_H */

@@ -372,52 +372,36 @@ static void do_dump(void)
 	diag_variant_buffer_spin_unlock(&irq_trace_variant_buffer, flags);
 }
 
-int irq_trace_syscall(struct pt_regs *regs, long id)
+long diag_ioctl_irq_trace(unsigned int cmd, unsigned long arg)
 {
-	int __user *user_ptr_len;
-	size_t __user user_buf_len;
-	void __user *user_buf;
 	int ret = 0;
 	struct diag_irq_trace_settings settings;
+	struct diag_ioctl_dump_param dump_param;
 
-	switch (id) {
-	case DIAG_IRQ_TRACE_SET:
-		user_buf = (void __user *)SYSCALL_PARAM1(regs);
-		user_buf_len = (size_t)SYSCALL_PARAM2(regs);
-
-		if (user_buf_len != sizeof(struct diag_irq_trace_settings)) {
-			ret = -EINVAL;
-		} else if (irq_trace_settings.activated) {
+	switch (cmd) {
+	case CMD_IRQ_TRACE_SET:
+		if (irq_trace_settings.activated) {
 			ret = -EBUSY;
 		} else {
-			ret = copy_from_user(&settings, user_buf, user_buf_len);
+			ret = copy_from_user(&settings, (void *)arg, sizeof(struct diag_irq_trace_settings));
 			if (!ret) {
 				irq_trace_settings = settings;
 			}
 		}
 		break;
-	case DIAG_IRQ_TRACE_SETTINGS:
-		user_buf = (void __user *)SYSCALL_PARAM1(regs);
-		user_buf_len = (size_t)SYSCALL_PARAM2(regs);
-
-		if (user_buf_len != sizeof(struct diag_irq_trace_settings)) {
-			ret = -EINVAL;
-		} else {
-			settings = irq_trace_settings;
-			ret = copy_to_user(user_buf, &settings, user_buf_len);
-		}
+	case CMD_IRQ_TRACE_SETTINGS:
+		settings = irq_trace_settings;
+		ret = copy_to_user((void *)arg, &settings, sizeof(struct diag_irq_trace_settings));
 		break;
-	case DIAG_IRQ_TRACE_DUMP:
-		user_ptr_len = (void __user *)SYSCALL_PARAM1(regs);
-		user_buf = (void __user *)SYSCALL_PARAM2(regs);
-		user_buf_len = (size_t)SYSCALL_PARAM3(regs);
+	case CMD_IRQ_TRACE_DUMP:
+		ret = copy_from_user(&dump_param, (void *)arg, sizeof(struct diag_ioctl_dump_param));
 
 		do_dump();
 		if (!irq_trace_alloced) {
 			ret = -EINVAL;
-		} else {
+		} else if (!ret) {
 			ret = copy_to_user_variant_buffer(&irq_trace_variant_buffer,
-					user_ptr_len, user_buf, user_buf_len);
+					dump_param.user_ptr_len, dump_param.user_buf, dump_param.user_buf_len);
 			record_dump_cmd("irq-trace");
 		}
 		break;
@@ -427,11 +411,6 @@ int irq_trace_syscall(struct pt_regs *regs, long id)
 	}
 
 	return ret;
-}
-
-long diag_ioctl_irq_trace(unsigned int cmd, unsigned long arg)
-{
-	return -EINVAL;
 }
 
 static int lookup_syms(void)

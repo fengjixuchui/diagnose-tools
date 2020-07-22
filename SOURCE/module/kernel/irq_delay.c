@@ -115,61 +115,44 @@ int deactivate_irq_delay(void)
 	return 0;
 }
 
-int irq_delay_syscall(struct pt_regs *regs, long id)
+long diag_ioctl_irq_delay(unsigned int cmd, unsigned long arg)
 {
-	int __user *user_ptr_len;
-	size_t __user user_buf_len;
-	void __user *user_buf;
 	unsigned long flags;
 	int i, ms;
 	int ret = 0;
 	struct diag_irq_delay_settings settings;
+	struct diag_ioctl_dump_param dump_param;
 
-	switch (id) {
-	case DIAG_IRQ_DELAY_SET:
-		user_buf = (void __user *)SYSCALL_PARAM1(regs);
-		user_buf_len = (size_t)SYSCALL_PARAM2(regs);
-
-		if (user_buf_len != sizeof(struct diag_irq_delay_settings)) {
-			ret = -EINVAL;
-		} else if (irq_delay_settings.activated) {
+	switch (cmd) {
+	case CMD_IRQ_DELAY_SET:
+		if (irq_delay_settings.activated) {
 			ret = -EBUSY;
 		} else {
-			ret = copy_from_user(&settings, user_buf, user_buf_len);
+			ret = copy_from_user(&settings, (void *)arg, sizeof(struct diag_irq_delay_settings));
 			if (!ret) {
 				irq_delay_settings = settings;
 			}
 		}
 		break;
-	case DIAG_IRQ_DELAY_SETTINGS:
-		user_buf = (void __user *)SYSCALL_PARAM1(regs);
-		user_buf_len = (size_t)SYSCALL_PARAM2(regs);
-
-		if (user_buf_len != sizeof(struct diag_irq_delay_settings)) {
-			ret = -EINVAL;
-		} else {
-			settings.activated = irq_delay_settings.activated;
-			settings.verbose = irq_delay_settings.verbose;
-			settings.threshold = irq_delay_settings.threshold;
-			ret = copy_to_user(user_buf, &settings, user_buf_len);
-		}
+	case CMD_IRQ_DELAY_SETTINGS:
+		settings = irq_delay_settings;
+		ret = copy_to_user((void *)arg, &settings, sizeof(struct diag_irq_delay_settings));
 		break;
-	case DIAG_IRQ_DELAY_DUMP:
-		user_ptr_len = (void __user *)SYSCALL_PARAM1(regs);
-		user_buf = (void __user *)SYSCALL_PARAM2(regs);
-		user_buf_len = (size_t)SYSCALL_PARAM3(regs);
-
+	case CMD_IRQ_DELAY_DUMP:
+		ret = copy_from_user(&dump_param, (void *)arg, sizeof(struct diag_ioctl_dump_param));
 		if (!irq_delay_alloced) {
 			ret = -EINVAL;
-		} else {
+		} else if (!ret) {
 			ret = copy_to_user_variant_buffer(&irq_delay_variant_buffer,
-					user_ptr_len, user_buf, user_buf_len);
+					dump_param.user_ptr_len, dump_param.user_buf, dump_param.user_buf_len);
 			record_dump_cmd("irq-delay");
 		}
 		break;
-	case DIAG_IRQ_DELAY_TEST:
-		ms = SYSCALL_PARAM1(regs);
-		
+	case CMD_IRQ_DELAY_TEST:
+		ret = copy_from_user(&ms, (void *)arg, sizeof(int));
+		if (ret)
+			ms = 0;
+
 		if (ms <= 0 || ms > 1000) {
 			ret = -EINVAL;
 		} else {
@@ -178,6 +161,7 @@ int irq_delay_syscall(struct pt_regs *regs, long id)
 				mdelay(1);
 			local_irq_restore(flags);
 		}
+
 		break;
 	default:
 		ret = -ENOSYS;
@@ -185,11 +169,6 @@ int irq_delay_syscall(struct pt_regs *regs, long id)
 	}
 
 	return ret;
-}
-
-long diag_ioctl_irq_delay(unsigned int cmd, unsigned long arg)
-{
-	return -EINVAL;
 }
 
 static int lookup_syms(void)

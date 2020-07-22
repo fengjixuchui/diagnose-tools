@@ -196,51 +196,35 @@ int deactivate_exit_monitor(void)
 	return 0;
 }
 
-int exit_monitor_syscall(struct pt_regs *regs, long id)
+long diag_ioctl_exit_monitor(unsigned int cmd, unsigned long arg)
 {
-	int __user *user_ptr_len;
-	size_t __user user_buf_len;
-	void __user *user_buf;
 	int ret = 0;
 	struct diag_exit_monitor_settings settings;
+	struct diag_ioctl_dump_param dump_param;
 
-	switch (id) {
-	case DIAG_EXIT_MONITOR_SET:
-		user_buf = (void __user *)SYSCALL_PARAM1(regs);
-		user_buf_len = (size_t)SYSCALL_PARAM2(regs);
-
-		if (user_buf_len != sizeof(struct diag_exit_monitor_settings)) {
-			ret = -EINVAL;
-		} else if (exit_monitor_settings.activated) {
+	switch (cmd) {
+	case CMD_EXIT_MONITOR_SET:
+		if (exit_monitor_settings.activated) {
 			ret = -EBUSY;
 		} else {
-			ret = copy_from_user(&settings, user_buf, user_buf_len);
+			ret = copy_from_user(&settings, (void *)arg, sizeof(struct diag_exit_monitor_settings));
 			if (!ret) {
 				exit_monitor_settings = settings;
 			}
 		}
 		break;
-	case DIAG_EXIT_MONITOR_SETTINGS:
-		user_buf = (void __user *)SYSCALL_PARAM1(regs);
-		user_buf_len = (size_t)SYSCALL_PARAM2(regs);
-
-		if (user_buf_len != sizeof(struct diag_exit_monitor_settings)) {
-			ret = -EINVAL;
-		} else {
-			settings = exit_monitor_settings;
-			ret = copy_to_user(user_buf, &settings, user_buf_len);
-		}
+	case CMD_EXIT_MONITOR_SETTINGS:
+		settings = exit_monitor_settings;
+		ret = copy_to_user((void *)arg, &settings, sizeof(struct diag_exit_monitor_settings));
 		break;
-	case DIAG_EXIT_MONITOR_DUMP:
-		user_ptr_len = (void __user *)SYSCALL_PARAM1(regs);
-		user_buf = (void __user *)SYSCALL_PARAM2(regs);
-		user_buf_len = (size_t)SYSCALL_PARAM3(regs);
+	case CMD_EXIT_MONITOR_DUMP:
+		ret = copy_from_user(&dump_param, (void *)arg, sizeof(struct diag_ioctl_dump_param));
 
 		if (!exec_monitor_alloced) {
 			ret = -EINVAL;
-		} else {
+		} else if (!ret) {
 			ret = copy_to_user_variant_buffer(&exit_monitor_variant_buffer,
-					user_ptr_len, user_buf, user_buf_len);
+					dump_param.user_ptr_len, dump_param.user_buf, dump_param.user_buf_len);
 			record_dump_cmd("exit-monitor");
 		}
 		break;
@@ -250,11 +234,6 @@ int exit_monitor_syscall(struct pt_regs *regs, long id)
 	}
 
 	return ret;
-}
-
-long diag_ioctl_exit_monitor(unsigned int cmd, unsigned long arg)
-{
-	return -EINVAL;
 }
 
 int diag_exit_init(void)

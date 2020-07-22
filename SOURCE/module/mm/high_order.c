@@ -158,56 +158,40 @@ int deactivate_high_order(void)
 	return 0;
 }
 
-int high_order_syscall(struct pt_regs *regs, long id)
+long diag_ioctl_high_order(unsigned int cmd, unsigned long arg)
 {
-	int __user *user_ptr_len;
-	size_t __user user_buf_len;
-	void __user *user_buf;
 	int ret = 0;
 	struct diag_high_order_settings settings;
+	struct diag_ioctl_dump_param dump_param;
 	unsigned long addr;
 
-	switch (id) {
-	case DIAG_HIGH_ORDER_SET:
-		user_buf = (void __user *)SYSCALL_PARAM1(regs);
-		user_buf_len = (size_t)SYSCALL_PARAM2(regs);
-
-		if (user_buf_len != sizeof(struct diag_high_order_settings)) {
-			ret = -EINVAL;
-		} else if (high_order_settings.activated) {
+	switch (cmd) {
+	case CMD_HIGH_ORDER_SET:
+		if (high_order_settings.activated) {
 			ret = -EBUSY;
 		} else {
-			ret = copy_from_user(&settings, user_buf, user_buf_len);
+			ret = copy_from_user(&settings, (void *)arg, sizeof(struct diag_high_order_settings));
 			if (!ret) {
 				high_order_settings = settings;
 			}
 		}
 		break;
-	case DIAG_HIGH_ORDER_SETTINGS:
-		user_buf = (void __user *)SYSCALL_PARAM1(regs);
-		user_buf_len = (size_t)SYSCALL_PARAM2(regs);
-
-		if (user_buf_len != sizeof(struct diag_high_order_settings)) {
-			ret = -EINVAL;
-		} else {
-			settings = high_order_settings;
-			ret = copy_to_user(user_buf, &settings, user_buf_len);
-		}
+	case CMD_HIGH_ORDER_SETTINGS:
+		settings = high_order_settings;
+		ret = copy_to_user((void *)arg, &settings, sizeof(struct diag_high_order_settings));
 		break;
-	case DIAG_HIGH_ORDER_DUMP:
-		user_ptr_len = (void __user *)SYSCALL_PARAM1(regs);
-		user_buf = (void __user *)SYSCALL_PARAM2(regs);
-		user_buf_len = (size_t)SYSCALL_PARAM3(regs);
+	case CMD_HIGH_ORDER_DUMP:
+		ret = copy_from_user(&dump_param, (void *)arg, sizeof(struct diag_ioctl_dump_param));
 
 		if (!high_order_alloced) {
 			ret = -EINVAL;
-		} else {
+		} else if (!ret) {
 			ret = copy_to_user_variant_buffer(&high_order_variant_buffer,
-					user_ptr_len, user_buf, user_buf_len);
+					dump_param.user_ptr_len, dump_param.user_buf, dump_param.user_buf_len);
 			record_dump_cmd("high-order");
 		}
 		break;
-	case DIAG_HIGH_ORDER_TEST:
+	case CMD_HIGH_ORDER_TEST:
 		addr = __get_free_pages(GFP_KERNEL, 3);
 		if (addr)
 			free_pages(addr, 3);
@@ -219,11 +203,6 @@ int high_order_syscall(struct pt_regs *regs, long id)
 	}
 
 	return ret;
-}
-
-long diag_ioctl_high_order(unsigned int cmd, unsigned long arg)
-{
-	return -EINVAL;
 }
 
 int diag_high_order_init(void)

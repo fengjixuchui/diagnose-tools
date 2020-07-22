@@ -1976,52 +1976,36 @@ static ssize_t dump_data(void)
 	return 0;
 }
 
-int ping_delay_syscall(struct pt_regs *regs, long id)
+long diag_ioctl_ping_delay(unsigned int cmd, unsigned long arg)
 {
-	int __user *user_ptr_len;
-	size_t __user user_buf_len;
-	void __user *user_buf;
 	int ret = 0;
 	struct diag_ping_delay_settings settings;
+	struct diag_ioctl_dump_param dump_param;
 
-	switch (id) {
-	case DIAG_PING_DELAY_SET:
-		user_buf = (void __user *)SYSCALL_PARAM1(regs);
-		user_buf_len = (size_t)SYSCALL_PARAM2(regs);
-
-		if (user_buf_len != sizeof(struct diag_ping_delay_settings)) {
-			ret = -EINVAL;
-		} else if (ping_delay_settings.activated) {
+	switch (cmd) {
+	case CMD_PING_DELAY_SET:
+		if (ping_delay_settings.activated) {
 			ret = -EBUSY;
 		} else {
-			ret = copy_from_user(&settings, user_buf, user_buf_len);
+			ret = copy_from_user(&settings, (void *)arg, sizeof(struct diag_ping_delay_settings));
 			if (!ret) {
 				ping_delay_settings = settings;
 			}
 		}
 		break;
-	case DIAG_PING_DELAY_SETTINGS:
-		user_buf = (void __user *)SYSCALL_PARAM1(regs);
-		user_buf_len = (size_t)SYSCALL_PARAM2(regs);
-
-		if (user_buf_len != sizeof(struct diag_ping_delay_settings)) {
-			ret = -EINVAL;
-		} else {
-			settings = ping_delay_settings;
-			ret = copy_to_user(user_buf, &settings, user_buf_len);
-		}
+	case CMD_PING_DELAY_SETTINGS:
+		settings = ping_delay_settings;
+		ret = copy_to_user((void *)arg, &settings, sizeof(struct diag_ping_delay_settings));
 		break;
-	case DIAG_PING_DELAY_DUMP:
-		user_ptr_len = (void __user *)SYSCALL_PARAM1(regs);
-		user_buf = (void __user *)SYSCALL_PARAM2(regs);
-		user_buf_len = (size_t)SYSCALL_PARAM3(regs);
+	case CMD_PING_DELAY_DUMP:
+		ret = copy_from_user(&dump_param, (void *)arg, sizeof(struct diag_ioctl_dump_param));
 
 		if (!ping_delay_alloced) {
 			ret = -EINVAL;
-		} else {
+		} else if(!ret){
 			dump_data();
 			ret = copy_to_user_variant_buffer(&ping_delay_variant_buffer,
-					user_ptr_len, user_buf, user_buf_len);
+					dump_param.user_ptr_len, dump_param.user_buf, dump_param.user_buf_len);
 			record_dump_cmd("ping-delay");
 		}
 		break;
@@ -2031,11 +2015,6 @@ int ping_delay_syscall(struct pt_regs *regs, long id)
 	}
 
 	return ret;
-}
-
-long diag_ioctl_ping_delay(unsigned int cmd, unsigned long arg)
-{
-	return -EINVAL;
 }
 
 int diag_net_ping_delay_init(void)
