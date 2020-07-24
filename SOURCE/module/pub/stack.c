@@ -503,14 +503,6 @@ copy_stack_frame(const void __user *fp, struct stack_frame_user *frame)
 	return ret;
 }
 
-#if KERNEL_VERSION(5, 0, 0) <= LINUX_VERSION_CODE
-struct stack_trace {
-	unsigned int nr_entries, max_entries;
-	unsigned long *entries;
-	int skip;	/* input argument: How many entries to skip */
-};
-#endif
-
 static inline void __save_stack_trace_user(struct stack_trace *trace)
 {
 	const struct pt_regs *regs = task_pt_regs(current);
@@ -573,7 +565,7 @@ void diag_task_kern_stack(struct task_struct *tsk, struct diag_kern_stack_detail
 {
 	diagnose_save_stack_trace(tsk, detail->stack);
 }
-#if defined(EXPERIENTIAL) && !defined(DIAG_ARM64)
+#if !defined(DIAG_ARM64)
 static int
 copy_stack_frame_remote(struct task_struct *tsk, const void __user *fp, struct stack_frame_user *frame)
 {

@@ -237,6 +237,15 @@ extern int diag_get_symbol_count(char *symbol);
 
 extern u64 timer_sampling_period_ms;
 
+
+#if KERNEL_VERSION(5, 0, 0) <= LINUX_VERSION_CODE
+struct stack_trace {
+	unsigned int nr_entries, max_entries;
+	unsigned long *entries;
+	int skip;	/* input argument: How many entries to skip */
+};
+#endif
+
 struct diag_percpu_context;
 struct task_struct;
 
@@ -408,8 +417,6 @@ struct diag_percpu_context {
 	struct perf_detail perf_detail;
 	struct sys_delay_detail sys_delay_detail;
 	struct sched_delay_dither sched_delay_dither;
-	struct kprobe_detail kprobe_detail;
-	struct kprobe_raw_stack_detail kprobe_raw_stack_detail;
 
 	struct {
 		struct uprobe_detail uprobe_detail;
@@ -430,6 +437,11 @@ struct diag_percpu_context {
 	} rw_top;
 
 	struct utilization_detail utilization_detail;
+	struct {
+		struct kprobe_detail kprobe_detail;
+		struct kprobe_raw_stack_detail kprobe_raw_stack_detail;
+		unsigned int sample_step;
+	} kprobe;
 };
 
 extern struct diag_percpu_context *diag_percpu_context[NR_CPUS];
