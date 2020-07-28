@@ -24,8 +24,8 @@ declare -a __all_case=(["1"]="sys-delay" ["2"]="sys-cost" ["3"]="sched-delay" \
 			["16"]="alloc-top" ["17"]="high-order"\
 			["18"]="drop-packet" ["19"]="tcp-retrans" ["20"]="ping-delay" \
 			["21"]="rw-top" ["22"]="fs-shm" ["23"]="fs-orphan" \
-			["24"]="fs-cache" ["25"]="task-info" ["26"]="cpu-loop" \
-			["999"]="kern-demo" )
+			["24"]="fs-cache" ["25"]="task-info" ["26"]="reboot" \
+			["100"]="cpu-loop" ["999"]="kern-demo" )
 
 sys_delay() {
 	eval "$DIAG_CMD sys-delay --deactivate --activate='style=0' --test --report --deactivate --settings"
@@ -250,6 +250,10 @@ cpu_loop() {
 	for i in `seq $1`; do
 		sh -c "while :; do echo ok > /dev/null; done" &
 	done
+}
+
+reboot() {
+	eval "$DIAG_CMD reboot --verbose=1 --activate --settings"
 }
 
 call_sub_cmd() {
