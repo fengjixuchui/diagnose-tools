@@ -571,6 +571,9 @@ void irq_delay_timer(struct diag_percpu_context *context);
 void perf_timer(struct diag_percpu_context *context);
 void utilization_timer(struct diag_percpu_context *context);
 
+void diag_hook_sys_enter(void);
+void diag_unhook_sys_enter(void);
+
 ssize_t dump_pid_cmdline(int pre, enum diag_printk_type type, void *obj,
 	struct task_struct *tsk, char *buf, size_t _count);
 
@@ -748,6 +751,8 @@ int deactivate_reboot(void);
 int activate_fs_orphan(void);
 int deactivate_fs_orphan(void);
 
+int perf_syscall(struct pt_regs *regs, long id);
+
 void diag_task_brief(struct task_struct *tsk, struct diag_task_detail *detail);
 void printk_task_brief(struct diag_task_detail *detail);
 void diag_task_kern_stack(struct task_struct *tsk, struct diag_kern_stack_detail *detail);
@@ -764,6 +769,7 @@ void cpumask_to_str(struct cpumask *cpumask, char *buf, int len);
 
 int activate_ping_delay(void);
 int deactivate_ping_delay(void);
+int ping_delay_syscall(struct pt_regs *regs, long id);
 int diag_ping_delay_init(void);
 void diag_ping_delay_exit(void);
 
@@ -779,11 +785,13 @@ void diag_sys_cost_exit(void);
 
 int activate_fs_cache(void);
 int deactivate_fs_cache(void);
+int fs_cache_syscall(struct pt_regs *regs, long id);
 int diag_fs_cache_init(void);
 void diag_fs_cache_exit(void);
 
 int activate_high_order(void);
 int deactivate_high_order(void);
+int high_order_syscall(struct pt_regs *regs, long id);
 int diag_high_order_init(void);
 void diag_high_order_exit(void);
 void record_dump_cmd(char *module);

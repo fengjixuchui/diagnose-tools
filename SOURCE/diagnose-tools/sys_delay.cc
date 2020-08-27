@@ -56,7 +56,7 @@ void usage_sys_delay(void)
 
 static void do_activate(const char *arg)
 {
-	int fd;
+	int fd = 0;
 	int ret = 0;
 	struct params_parser parse(arg);
 	struct diag_sys_delay_settings settings;
@@ -69,13 +69,18 @@ static void do_activate(const char *arg)
 	if (settings.threshold_ms <= 0)
 		settings.threshold_ms = 50;
 
-	fd = open("/dev/diagnose-tools", O_RDWR, 0);
-	if (fd < 0) {
-		printf("open /dev/diagnose-tools error!\n");
-		return;
+	if (run_in_host) {
+		fd = open("/dev/diagnose-tools", O_RDWR, 0);
+		if (fd < 0) {
+			printf("open /dev/diagnose-tools error!\n");
+			return;
+		}
+		ret = ioctl(fd, DIAG_IOCTL_SYS_DELAY_SET, &settings);
+	} else {
+		ret = -ENOSYS;
+		syscall(DIAG_SYS_DELAY_SET, &ret, &settings, sizeof(struct diag_sys_delay_settings));
 	}
 
-	ret = ioctl(fd, DIAG_IOCTL_SYS_DELAY_SET, &settings);
 	if (ret < 0) {
 		printf("call cmd DIAG_IOCTL_SYS_DELAY_SET fail\n");
 		goto err;
@@ -93,7 +98,8 @@ static void do_activate(const char *arg)
 	}
 
 err:
-	close(fd);
+	if (fd)
+		close(fd);
 }
 
 static void do_deactivate(void)
@@ -134,20 +140,26 @@ static void print_settings_in_json(struct diag_sys_delay_settings *settings, int
 
 static void do_settings(const char *arg)
 {
-	int fd;
+	int fd = 0;
 	struct diag_sys_delay_settings settings;
 	int ret;
 	int enable_json = 0;
 	struct params_parser parse(arg);
 	enable_json = parse.int_value("json");
 
-	fd = open("/dev/diagnose-tools", O_RDWR, 0);
-	if (fd < 0) {
-		printf("open /dev/diagnose-tools error!\n");
-		return;
+	if (run_in_host) {
+		fd = open("/dev/diagnose-tools", O_RDWR, 0);
+		if (fd < 0) {
+			printf("open /dev/diagnose-tools error!\n");
+			return;
+		}
+
+		ret = ioctl(fd, DIAG_IOCTL_SYS_DELAY_SETTINGS, &settings);
+	} else {
+		ret = -ENOSYS;
+		syscall(DIAG_SYS_DELAY_SETTINGS, &ret, &settings, sizeof(struct diag_sys_delay_settings));
 	}
 
-	ret = ioctl(fd, DIAG_IOCTL_SYS_DELAY_SETTINGS, &settings);
 	if (ret < 0) {
 		printf("call cmd DIAG_IOCTL_SYS_DELAY_SETTINGS fail\n");
 		goto err;
@@ -168,15 +180,16 @@ static void do_settings(const char *arg)
 	}
 
 err:
-	close(fd);
+	if (fd)
+		close(fd);
 }
 
 static int sys_delay_extract(void *buf, unsigned int len, void *)
 {
 	int *et_type;
 	struct sys_delay_detail *detail;
-    symbol sym;
-    elf_file file;
+	symbol sym;
+	elf_file file;
 	static int seq;
 
 	if (len == 0)
@@ -241,18 +254,23 @@ static void do_dump(void)
 		.user_buf_len = 1024 * 1024,
 		.user_buf = variant_buf,
 	};
-	int fd;
+	int fd = 0;
 
-	fd = open("/dev/diagnose-tools", O_RDWR, 0);
-	if (fd < 0) {
-		printf("open /dev/diagnose-tools error!\n");
-		return;
-	}
+	if (run_in_host) {
+		fd = open("/dev/diagnose-tools", O_RDWR, 0);
+		if (fd < 0) {
+			printf("open /dev/diagnose-tools error!\n");
+			return;
+		}
 
-	ret = ioctl(fd, DIAG_IOCTL_SYS_DELAY_DUMP, &dump_param);
-	if (ret < 0) {
-		printf("call cmd DIAG_IOCTL_SYS_DELAY_DUMP fail\n");
-		goto err;
+		ret = ioctl(fd, DIAG_IOCTL_SYS_DELAY_DUMP, &dump_param);
+		if (ret < 0) {
+			printf("call cmd DIAG_IOCTL_SYS_DELAY_DUMP fail\n");
+			goto err;
+		}
+	} else {
+		ret = -ENOSYS;
+		syscall(DIAG_SYS_DELAY_DUMP, &ret, &len, variant_buf, 1024 * 1024);
 	}
 
 	if (ret == 0 && len > 0) {
@@ -260,36 +278,44 @@ static void do_dump(void)
 	}
 
 err:
-	close(fd);
+	if (fd)
+		close(fd);
 }
 
 static void do_test(void)
 {
 	int ret = 0;
-	int fd;
+	int fd = 0;
 	int ms = 100;
 
-	fd = open("/dev/diagnose-tools", O_RDWR, 0);
-	if (fd < 0) {
-		printf("open /dev/diagnose-tools error!\n");
-		return;
+	if (run_in_host) {
+		fd = open("/dev/diagnose-tools", O_RDWR, 0);
+		if (fd < 0) {
+			printf("open /dev/diagnose-tools error!\n");
+			return;
+		}
+
+		ret = ioctl(fd, DIAG_IOCTL_SYS_DELAY_TEST, &ms);
+	} else {
+		ret = -ENOSYS;
+		syscall(DIAG_SYS_DELAY_TEST, &ret, ms);
 	}
 
-	ret = ioctl(fd, DIAG_IOCTL_SYS_DELAY_TEST, &ms);
 	if (ret < 0) {
 		printf("call cmd DIAG_IOCTL_SYS_DELAY_TEST fail\n");
 		goto err;
 	}
 
 err:
-	close(fd);
+	if (fd)
+		close(fd);
 }
 
 static int sls_extract(void *buf, unsigned int len, void *)
 {
 	int *et_type;
 	struct sys_delay_detail *detail;
-    symbol sym;
+	symbol sym;
 	
 	Json::Value root;
 	Json::Value task;
@@ -339,7 +365,7 @@ static void do_sls(char *arg)
 		.user_buf_len = 1024 * 1024,
 		.user_buf = variant_buf,
 	};
-	int fd;
+	int fd = 0;
 
 	ret = log_config(arg, sls_file, &syslog_enabled);
 	if (ret != 1)
@@ -347,16 +373,21 @@ static void do_sls(char *arg)
 
 	java_attach_once();
 	while (1) {
-		fd = open("/dev/diagnose-tools", O_RDWR, 0);
-		if (fd < 0) {
-			printf("open /dev/diagnose-tools error!\n");
-			goto cont;
-		}
+		if (run_in_host) {
+			fd = open("/dev/diagnose-tools", O_RDWR, 0);
+			if (fd < 0) {
+				printf("open /dev/diagnose-tools error!\n");
+				goto cont;
+			}
 
-		ret = ioctl(fd, DIAG_IOCTL_SYS_DELAY_DUMP, &dump_param);
-		if (ret < 0) {
-			printf("call cmd DIAG_IOCTL_SYS_DELAY_DUMP fail\n");
-			goto err;
+			ret = ioctl(fd, DIAG_IOCTL_SYS_DELAY_DUMP, &dump_param);
+			if (ret < 0) {
+				printf("call cmd DIAG_IOCTL_SYS_DELAY_DUMP fail\n");
+				goto err;
+			}
+		} else {
+			ret = -ENOSYS;
+			syscall(DIAG_SYS_DELAY_DUMP, &ret, &len, variant_buf, 1024 * 1024);
 		}
 
 		if (ret == 0 && len > 0) {
@@ -373,7 +404,8 @@ static void do_sls(char *arg)
 		}
 
 err:
-		close(fd);
+		if (fd)
+			close(fd);
 cont:
 		sleep(10);
 		jiffies_sls++;

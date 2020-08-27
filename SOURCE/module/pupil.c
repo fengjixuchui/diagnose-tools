@@ -978,6 +978,39 @@ static int get_task_info(int nid)
 	return ret;
 }
 
+int pupil_syscall(struct pt_regs *regs, long id)
+{
+	int ret = 0;
+	int __user *ptr_len;
+	void __user *buf;
+	size_t size;
+	unsigned int pid;
+
+	switch (id) {
+	case DIAG_PUPIL_TASK_DUMP:
+		ptr_len = (void __user *)SYSCALL_PARAM1(regs);
+		buf = (void __user *)SYSCALL_PARAM2(regs);
+		size = (size_t)SYSCALL_PARAM3(regs);
+
+		if (!pupil_alloced) {
+			ret = -EINVAL;
+		} else {
+			ret = copy_to_user_variant_buffer(&pupil_variant_buffer, ptr_len, buf, size);
+			record_dump_cmd("task-info");
+		}
+		break;
+	case DIAG_PUPIL_TASK_PID:
+		pid = (unsigned int)SYSCALL_PARAM1(regs);
+		ret = get_task_info(pid);
+		break;
+	default:
+		ret = -ENOSYS;
+		break;
+	}
+
+	return ret;
+}
+
 long diag_ioctl_pupil_task(unsigned int cmd, unsigned long arg)
 {
 	int ret = 0;
