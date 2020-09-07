@@ -48,6 +48,7 @@ int reboot_main(int argc, char **argv);
 int pi_main(int argc, char *argv[]);
 int memcpy_main(int argc, char* argv[]);
 int md5_main(int argc, char *argv[]);
+int net_bandwidth_main(int argc, char *argv[]);
 
 void usage_run_trace(void);
 void usage_sys_delay(void);
@@ -75,6 +76,7 @@ void usage_reboot(void);
 void usage_test_memcpy(void);
 void usage_test_pi(void);
 void usage_test_md5(void);
+void usage_net_bandwidth(void);
 
 int uprobe_main(int argc, char **argv);
 void usage_uprobe();
@@ -93,6 +95,7 @@ void diag_printf_time(struct timeval *tv);
 void diag_printf_task(struct diag_task_detail *task);
 void diag_printf_proc_chains(struct diag_proc_chains_detail *proc_chains);
 void diag_printf_proc_chains(struct diag_proc_chains_detail *proc_chains, int reverse);
+void diag_printf_proc_chains(struct diag_proc_chains_detail *proc_chains, int reverse, int detail);
 void diag_printf_kern_stack(struct diag_kern_stack_detail *kern_stack);
 void diag_printf_kern_stack(struct diag_kern_stack_detail *kern_stack, int reverse);
 void diag_printf_user_stack(int pid, int ns_pid, const char *comm,
