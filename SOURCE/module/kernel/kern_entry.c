@@ -242,14 +242,20 @@ int diag_kernel_init(void)
 	if (ret)
 		goto out_uprobe;
 
+	ret = diag_sig_info_init();
+	if (ret)
+		goto out_sig_info;
+
 	on_each_cpu(start_timer, NULL, 1);
 
-#if !defined(XBY_UBUNTU_1604) && LINUX_VERSION_CODE < KERNEL_VERSION(4, 18, 0)
+#if !defined(XBY_UBUNTU_1604) && LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
 	register_hotcpu_notifier(&diag_cpu_nb);
 #endif
 
 	return 0;
 
+out_sig_info:
+	diag_uprobe_exit();
 out_uprobe:
 	diag_reboot_exit();
 out_reboot:
@@ -308,7 +314,7 @@ void diag_kernel_exit(void)
 	struct diag_percpu_context *percpu_context;
 	struct hrtimer *timer;
 
-#if !defined(XBY_UBUNTU_1604) && LINUX_VERSION_CODE < KERNEL_VERSION(4, 18, 0)
+#if !defined(XBY_UBUNTU_1604) && LINUX_VERSION_CODE < KERNEL_VERSION(4, 14, 0)
 	unregister_hotcpu_notifier(&diag_cpu_nb);
 #endif
 	/* cancel per-cpu hrtimer */
@@ -323,6 +329,7 @@ void diag_kernel_exit(void)
 		}
 	}
 
+	diag_sig_info_exit();
 	diag_uprobe_exit();
 	diag_reboot_exit();
 	diag_utilization_exit();

@@ -145,6 +145,10 @@ ifneq ($(findstring 3.10.0-1127.10.1.el7.x86_64,$(KERNEL_BUILD_PATH)),)
 	DIAG_EXTRA_CFLAGS += -DCENTOS_3_10_1127_10_1
 endif
 
+ifneq ($(findstring 4.15.0-112-generic,$(KERNEL_BUILD_PATH)),)
+	DIAG_EXTRA_CFLAGS += -DUBUNTU_1604
+endif
+
 ifneq ($(KERNELRELEASE),)
 	TARGET := diagnose
 	obj-m = $(TARGET).o
@@ -162,7 +166,7 @@ ifneq ($(KERNELRELEASE),)
 			kernel/irq_stats.o kernel/irq_delay.o kernel/sys_delay.o \
 			kernel/exec.o kernel/perf.o kernel/run_trace.o kernel/irq_trace.o \
 			kernel/kprobe.o kernel/utilization.o kernel/sched_delay.o kernel/reboot.o \
-			kernel/uprobe.o kernel/sys_cost.o
+			kernel/uprobe.o kernel/sys_cost.o kernel/sig_info.o
 
 	$(TARGET)-objs += mm/mm_entry.o mm/alloc_page.o mm/alloc_top.o mm/high_order.o
 	$(TARGET)-objs += io/io_entry.o

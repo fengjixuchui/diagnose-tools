@@ -60,6 +60,8 @@ static void do_activate(const char *arg)
 	settings.shm = parse.int_value("shm");
 	settings.top = parse.int_value("top");
 	settings.perf = parse.int_value("perf");
+	if (settings.top == 0)
+		settings.top = 100;	
 
 	if (run_in_host) {
 		ret = diag_call_ioctl(DIAG_IOCTL_RW_TOP_SET, (long)&settings);
@@ -158,8 +160,6 @@ static int rw_top_extract(void *buf, unsigned int len, void *)
 	if (len == 0)
 		return 0;
 
-	printf("  序号           R-SIZE            W-SIZE          MAP-SIZE           RW-SIZE        文件名\n");
-	
 	et_type = (int *)buf;
 	switch (*et_type) {
 	case et_rw_top_detail:
@@ -167,12 +167,14 @@ static int rw_top_extract(void *buf, unsigned int len, void *)
 			break;
 		detail = (struct rw_top_detail *)buf;
 
-		printf("%5d%18lu%18lu%18lu%18lu        %-100s\n",
+		printf("%5d%18lu%18lu%18lu%18lu%8lu%16s        %-100s\n",
 			detail->seq,
 			detail->r_size,
 			detail->w_size,
 			detail->map_size,
 			detail->rw_size,
+			detail->pid,
+			detail->comm,
 			detail->path_name);
 
 		break;
@@ -196,6 +198,7 @@ static int rw_top_extract(void *buf, unsigned int len, void *)
 				perf->task.comm);
 		diag_printf_proc_chains(&perf->proc_chains);
 		printf("##\n");
+		break;
 	default:
 		break;
 	}
@@ -224,6 +227,8 @@ static int sls_extract(void *buf, unsigned int len, void *)
 		root["w_size"] = Json::Value(detail->w_size);
 		root["map_size"] = Json::Value(detail->map_size);
 		root["rw_size"] = Json::Value(detail->rw_size);
+		root["pid"] = Json::Value(detail->pid);
+		root["comm"] = Json::Value(detail->comm);
 		root["path_name"] = Json::Value(detail->path_name);
 
 		gettimeofday(&tv, NULL);
@@ -262,6 +267,7 @@ static void do_dump(void)
 	}
 
 	if (ret == 0) {
+		printf("  序号           R-SIZE            W-SIZE          MAP-SIZE           RW-SIZE     PID          进程名        文件名\n");
 		do_extract(variant_buf, len);
 	}
 }
