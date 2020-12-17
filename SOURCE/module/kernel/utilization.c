@@ -42,10 +42,7 @@
 
 #include "uapi/utilization.h"
 
-#if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 33)) || (KERNEL_VERSION(4, 20, 0) <= LINUX_VERSION_CODE) \
-	|| defined(CENTOS_3_10_693) || defined(CENTOS_3_10_957) \
-	|| defined(CENTOS_3_10_862) || defined(CENTOS_3_10_1062) \
-	|| defined(CENTOS_3_10_1127) || defined(UBUNTU_1604)
+#if !defined(ALIOS_7U)
 /**
  * 只支持7u
  */
@@ -426,7 +423,7 @@ int utilization_syscall(struct pt_regs *regs, long id)
 			do_dump();
 			ret = copy_to_user_variant_buffer(&utilization_variant_buffer,
 					user_ptr_len, user_buf, user_buf_len);
-			record_dump_cmd("utilization");
+			//record_dump_cmd("utilization");
 		}
 		break;
 	case DIAG_UTILIZATION_ISOLATE:

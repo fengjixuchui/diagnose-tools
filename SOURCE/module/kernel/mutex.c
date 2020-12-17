@@ -51,7 +51,7 @@ void diag_mutex_exit(void)
 {
 }
 #else
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 19, 0) || defined(CENTOS_8U)
 /*
  * Optimistic trylock that only works in the uncontended case. Make sure to
  * follow with a __mutex_trylock() before failing.
@@ -610,6 +610,8 @@ static int lookup_syms(void)
 	LOOKUP_SYMS(__mutex_lock_slowpath);
 	
 	orig___mutex_unlock_slowpath = (void *)__kallsyms_lookup_name("__mutex_unlock_slowpath.isra.0");
+	if (orig___mutex_unlock_slowpath == NULL)
+		orig___mutex_unlock_slowpath = (void *)__kallsyms_lookup_name("__mutex_unlock_slowpath.isra.12");
 	if (orig___mutex_unlock_slowpath == NULL)
 		orig___mutex_unlock_slowpath = (void *)__kallsyms_lookup_name("__mutex_unlock_slowpath.isra.14");
 	if (orig___mutex_unlock_slowpath == NULL)
