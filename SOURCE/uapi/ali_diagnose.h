@@ -155,6 +155,8 @@ struct diag_ioctl_dump_param_cycle {
 
 #define DIAG_PATH_LEN 100
 
+#define DIAG_DEVICE_LEN 32
+
 #define DIAG_NR_SOFTIRQS 15
 
 #include "uapi/variant_buffer.h"
@@ -471,6 +473,7 @@ struct diag_task_detail {
 	int container_pid;
 	int container_tgid;
 	long state;
+	int task_type;
 	char comm[TASK_COMM_LEN];
 };
 
@@ -513,12 +516,17 @@ struct diag_inode_detail {
 	unsigned long inode_block_bytes;
 };
 
+#ifndef __KERNEL__
 static inline void extract_variant_buffer(char *buf, unsigned int len, int (*func)(void *, unsigned int, void *), void *arg)
 {
 	unsigned int pos = 0;
 	struct diag_variant_buffer_head *head;
 	void *rec;
 	int rec_len;
+
+    char dir[1024] = {0};
+
+    getcwd(dir, sizeof(dir));
 
 	while (pos < len) {
 		head = (struct diag_variant_buffer_head *)(buf + pos);
@@ -535,6 +543,9 @@ static inline void extract_variant_buffer(char *buf, unsigned int len, int (*fun
 
 		pos += head->len;
 	}
+
+	chdir(dir);
 }
+#endif
 
 #endif /* UAPI_DIAG_H */
