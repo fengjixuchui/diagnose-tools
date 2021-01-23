@@ -103,26 +103,39 @@ run_trace() {
 }
 
 perf() {
-	eval "$DIAG_CMD perf --deactivate --activate='style=1 idle=1 bvt=1 raw-stack=1' --settings"
-	sleep 1
-	eval "$DIAG_CMD perf --report --deactivate" > perf.log
-	eval "$DIAG_CMD flame --input=perf.log --output=perf.svg"
-	echo "火焰图位于perf.svg"
+	eval "$DIAG_CMD perf --deactivate --activate='raw-stack=0 style=2 idle=1 bvt=1' --settings"
 
-	eval "$DIAG_CMD perf --deactivate --activate='style=0 idle=1 bvt=1'"
-	sleep 1
-	eval "$DIAG_CMD perf --report" > perf.log
-	sleep 1
-	eval "$DIAG_CMD perf --report='out=perf.out'"
-	eval "$DIAG_CMD perf --report='in=perf.out'" > perf.log
+	files=""
+	for i in `seq 2`; do
+		sleep 1
+		file="perf.${i}.raw"
+		files+="${file}\n"
+    		eval "$DIAG_CMD perf --report=\"out=$file\""
+	done
+	eval "$DIAG_CMD perf --report=\"console=1\"" > perf.log << EOF
+`echo -e ${files}`
+EOF
+
 	eval "$DIAG_CMD perf --deactivate"
+
+	eval "$DIAG_CMD flame --input=perf.log --output=perf.svg"
+        echo "火焰图位于perf.svg"
 }
 
 kprobe() {
 	eval "$DIAG_CMD kprobe --deactivate --activate='probe=hrtimer_interrupt'"
-	sleep 1
-	eval "$DIAG_CMD kprobe --report --deactivate --settings" > kprobe.log
-	eval "$DIAG_CMD flame --input=kprobe.log --output=kprobe.svg"
+        files=""
+        for i in `seq 10`; do
+                sleep 1
+                file="__kprobe.${i}.raw"
+                files+="${file}\n"
+                eval "$DIAG_CMD kprobe --report=\"out=$file\""
+        done
+        eval "systemd-run --scope -p MemoryLimit=1000M $DIAG_CMD kprobe --report=\"console=1\"" > kprobe.log << EOF
+`echo -e "${files}"`
+EOF
+
+        eval "$DIAG_CMD flame --input=kprobe.log --output=kprobe.svg"
         echo "火焰图位于kprobe.svg"
 }
 
@@ -221,9 +234,27 @@ rw_top() {
 	echo test: `date` >> /apsarapangu/diagnose-tools.2.log
 	echo test: `date` >> /apsarapangu/diagnose-tools.2.log
 	sleep 1
-	eval "$DIAG_CMD rw-top --report --deactivate" > rw-top.log
-        eval "$DIAG_CMD flame --input=rw-top.log --output=rw-top.svg"
-        echo "火焰图位于rw-top.svg"
+	
+	files=""
+        for i in `seq 2`; do
+                sleep 1
+                file="rw-top.${i}.raw"
+                files+="${file}\n"
+                eval "$DIAG_CMD rw-top --report=\"out=$file\""
+        done
+
+        eval "$DIAG_CMD rw-top --report=\"console=1\"" > rw-top.1.log << EOF
+`echo -e ${files}`
+EOF
+        eval "$DIAG_CMD flame --input=rw-top.1.log --output=rw-top.1.svg"
+        echo "火焰图位于rw-top.1.svg"
+
+	
+	ls -l rw-top.*.raw |awk '{print $NF}' > rw-top.txt
+        eval "$DIAG_CMD rw-top --report=\"inlist=rw-top.txt\"" > rw-top.2.log
+
+        eval "$DIAG_CMD flame --input=rw-top.2.log --output=rw-top.2.svg"
+        echo "火焰图位于rw-top.2.svg"
 }
 
 fs_shm() {
