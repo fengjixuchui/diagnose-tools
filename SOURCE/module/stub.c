@@ -1095,3 +1095,38 @@ int __weak activate_net_bandwidth(void)
 	return -EINVAL;
 }
 
+
+int __weak diag_task_monitor_init(void)
+{
+	return 0;
+}
+
+void __weak diag_task_monitor_exit(void)
+{
+	//
+}
+
+long __weak diag_ioctl_task_monitor(unsigned int cmd, unsigned long arg)
+{
+	return -EINVAL;
+}
+
+int __weak task_monitor_syscall(struct pt_regs *regs, long id)
+{
+	return -ENOSYS;
+}
+
+int __weak deactivate_task_monitor(void)
+{
+	return -EINVAL;
+}
+
+int __weak activate_task_monitor(void)
+{
+	return -EINVAL;
+}
+
+void __weak task_monitor_timer(struct diag_percpu_context *context)
+{
+        return;
+}

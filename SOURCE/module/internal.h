@@ -41,6 +41,7 @@ static inline void __percpu_counter_add(struct percpu_counter *fbc,
 #include "uapi/exit_monitor.h"
 #include "uapi/exec_monitor.h"
 #include "uapi/irq_delay.h"
+#include "uapi/run_trace.h"
 #include "uapi/perf.h"
 #include "uapi/sys_delay.h"
 #include "uapi/sched_delay.h"
@@ -51,6 +52,7 @@ static inline void __percpu_counter_add(struct percpu_counter *fbc,
 #include "uapi/rw_top.h"
 #include "uapi/utilization.h"
 #include "uapi/sig_info.h"
+#include "uapi/task_monitor.h"
 #include "pub/variant_buffer.h"
 #include "pub/stack.h"
 
@@ -421,6 +423,8 @@ struct diag_percpu_context {
 	struct irq_delay_detail irq_delay_detail;
 	struct perf_detail perf_detail;
 	struct perf_raw_detail perf_raw_detail;
+	struct event_sys_enter_raw event_sys_enter_raw;
+	struct event_run_trace_raw event_run_trace_raw;
 	struct sys_delay_detail sys_delay_detail;
 	struct sched_delay_dither sched_delay_dither;
 
@@ -462,6 +466,10 @@ struct diag_percpu_context {
 	struct {
 		struct sig_info_detail detail;
 	} sig_info;
+
+	struct {
+		struct task_monitor_detail detail;
+	} task_monitor_info;
 };
 
 extern struct diag_percpu_context *diag_percpu_context[NR_CPUS];
@@ -589,6 +597,7 @@ void sys_loop_timer(struct diag_percpu_context *context);
 void irq_delay_timer(struct diag_percpu_context *context);
 void perf_timer(struct diag_percpu_context *context);
 void utilization_timer(struct diag_percpu_context *context);
+void task_monitor_timer(struct diag_percpu_context *context);
 
 void diag_hook_sys_enter(void);
 void diag_unhook_sys_enter(void);
@@ -825,6 +834,9 @@ int activate_sig_info(void);
 int deactivate_sig_info(void);
 int diag_sig_info_init(void);
 void diag_sig_info_exit(void);
+
+int activate_task_monitor(void);
+int deactivate_task_monitor(void);
 
 int diag_dev_init(void);
 void diag_dev_cleanup(void);

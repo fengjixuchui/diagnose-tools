@@ -49,6 +49,7 @@ err:
 }
 
 extern unsigned long run_in_host;
+extern unsigned long debug_mode;
 #endif
 
 #define XBY_VERSION					"diagnose-tools 2.1-release"
@@ -88,6 +89,7 @@ extern unsigned long run_in_host;
 #define DIAG_IOCTL_TYPE_D (DIAG_IOCTL_TYPE_HIGH_ORDER + 1)
 #define DIAG_IOCTL_TYPE_NET_BANDWIDTH (DIAG_IOCTL_TYPE_D + 1)
 #define DIAG_IOCTL_TYPE_SIG_INFO (DIAG_IOCTL_TYPE_NET_BANDWIDTH + 1)
+#define DIAG_IOCTL_TYPE_TASK_MONITOR (DIAG_IOCTL_TYPE_SIG_INFO + 1)
 #define DIAG_IOCTL_TYPE_END (DIAG_IOCTL_TYPE_SIG_INFO + 1)
 
 long diag_ioctl_sys_delay(unsigned int cmd, unsigned long arg);
@@ -119,6 +121,7 @@ long diag_ioctl_pupil_task(unsigned int cmd, unsigned long arg);
 long diag_ioctl_reboot(unsigned int cmd, unsigned long arg);
 long diag_ioctl_net_bandwidth(unsigned int cmd, unsigned long arg);
 long diag_ioctl_sig_info(unsigned int cmd, unsigned long arg);
+long diag_ioctl_task_monitor(unsigned int cmd, unsigned long arg);
 
 struct diag_ioctl_test {
 	int in;
@@ -306,6 +309,10 @@ struct diag_ioctl_dump_param_cycle {
 #define DIAG_BASE_SYSCALL_SIG_INFO \
 	(DIAG_BASE_SYSCALL_NET_BANDWIDTH + DIAG_SYSCALL_INTERVAL)
 
+/// 1700
+#define DIAG_BASE_SYSCALL_TASK_MONITOR \
+	(DIAG_BASE_SYSCALL_SIG_INFO + DIAG_SYSCALL_INTERVAL)
+
 #define DIAG_SYSCALL_END (DIAG_BASE_SYSCALL + DIAG_SYSCALL_INTERVAL * 1000)
 
 enum diag_record_id {
@@ -387,6 +394,7 @@ enum diag_record_id {
 	et_sched_out,
 	et_sched_wakeup,
 	et_sys_enter,
+	et_sys_enter_raw,
 	et_sys_exit,
 	et_irq_handler_entry,
 	et_irq_handler_exit,
@@ -395,6 +403,7 @@ enum diag_record_id {
 	et_timer_expire_entry,
 	et_timer_expire_exit,
 	et_run_trace_perf,
+	et_run_trace_raw,
 	et_stop,
 	et_stop_raw_stack,
 
@@ -456,6 +465,9 @@ enum diag_record_id {
 	et_sig_info_base = et_net_bandwidth_base + DIAG_EVENT_TYPE_INTERVAL,
 	et_sig_info_detail,
 
+	et_task_monitor_base = et_sig_info_base + DIAG_EVENT_TYPE_INTERVAL,
+	et_task_monitor_summary,
+	et_task_monitor_detail,
 	et_count
 };
 

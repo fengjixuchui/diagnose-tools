@@ -37,14 +37,33 @@ typedef int (*diagnose_fp)(int argc, char **argv);
 struct diagnose_func {
 	const char* name;
 	diagnose_fp func;
+	int cont;
 };
 
 unsigned long run_in_host = 0;
+unsigned long debug_mode = 0;
+unsigned long vmsize_limit = 1;
 
 static int report_version(int argc, char **argv)
 {
 	printf("diagnose-tools tools version 2.1-release\n");
 	exit(0);
+
+	return 0;
+}
+
+static int set_debug_mode(int argc, char **argv)
+{
+	debug_mode = 1;
+
+	return 0;
+}
+
+static int no_vmsize(int argc, char **argv)
+{
+	vmsize_limit = 0;
+
+	return 0;
 }
 
 static int usage_flame(void)
@@ -99,6 +118,7 @@ static int usage(int argc, char **argv)
 	usage_pupil();
 	usage_net_bandwidth();
 	usage_sig_info();
+	usage_task_monitor();
 
 	printf("\n");
 	printf("/***************************************************************************/\n");
@@ -174,48 +194,51 @@ int do_flame(int argc, char *argv[])
 }
 
 static struct diagnose_func all_funcs[] {
-	{"usage", usage},
-	{"run-trace", run_trace_main},
-	{"jmaps", jmaps_main},
-	{"load-monitor", load_monitor_main},
-	{"perf", perf_main},
-	{"exit-monitor", exit_monitor_main},
-	{"sys-delay", sys_delay_main},
-	{"sched-delay", sched_delay_main},
-	{"utilization", utilization_main},
-	{"tcp-retrans", tcp_retrans_main},
-	{"rw-top", rw_top_main},
-	{"fs-cache", fs_cache_main},
-	{"irq-delay", irq_delay_main},
-	{"mutex-monitor", mutex_monitor_main},
-	{"alloc-top", alloc_top_main},
-	{"high-order", high_order_main},
-	{"drop-packet", drop_packet_main},
-	{"fs-orphan", fs_orphan_main},
-	{"exec-monitor", exec_monitor_main},
-	{"fs-shm", fs_shm_main},
-	{"irq-stats", irq_stats_main},
-	{"irq-trace", irq_trace_main},
-	{"kprobe", kprobe_main},
-	{"mm-leak",mm_leak_main},
-	{"ping-delay", ping_delay_main},
-	{"uprobe", uprobe_main},
-	{"-V", report_version},
-	{"-v", report_version},
-	{"--version", report_version},
-	{"install", do_install},
-	{"uninstall", do_uninstall},
-	{"flame", do_flame},
-	{"task-info", pupil_task_info},
-	{"reboot", reboot_main},
-	{"test-pi", pi_main},
-	{"test-memcpy", memcpy_main},
-	{"test-md5", md5_main},
-	{"test-run-trace", test_run_trace_main},
-	{"sys-cost", sys_cost_main},
-	{"net-bandwidth", net_bandwidth_main},
-	{"sig-info", sig_info_main},
-	{"test", testcase_main},
+	{"usage", usage, 0},
+	{"run-trace", run_trace_main, 0},
+	{"jmaps", jmaps_main, 0},
+	{"load-monitor", load_monitor_main, 0},
+	{"perf", perf_main, 0},
+	{"exit-monitor", exit_monitor_main, 0},
+	{"sys-delay", sys_delay_main, 0},
+	{"sched-delay", sched_delay_main, 0},
+	{"utilization", utilization_main, 0},
+	{"tcp-retrans", tcp_retrans_main, 0},
+	{"rw-top", rw_top_main, 0},
+	{"fs-cache", fs_cache_main, 0},
+	{"irq-delay", irq_delay_main, 0},
+	{"mutex-monitor", mutex_monitor_main, 0},
+	{"alloc-top", alloc_top_main, 0},
+	{"high-order", high_order_main, 0},
+	{"drop-packet", drop_packet_main, 0},
+	{"fs-orphan", fs_orphan_main, 0},
+	{"exec-monitor", exec_monitor_main, 0},
+	{"fs-shm", fs_shm_main, 0},
+	{"irq-stats", irq_stats_main, 0},
+	{"irq-trace", irq_trace_main, 0},
+	{"kprobe", kprobe_main, 0},
+	{"mm-leak",mm_leak_main, 0},
+	{"ping-delay", ping_delay_main, 0},
+	{"uprobe", uprobe_main, 0},
+	{"--vmsize", no_vmsize, 1},
+	{"-V", report_version, 0},
+	{"-v", report_version, 0},
+	{"--version", report_version, 0},
+	{"--debug", set_debug_mode, 1},
+	{"install", do_install, 0},
+	{"uninstall", do_uninstall, 0},
+	{"flame", do_flame, 0},
+	{"task-info", pupil_task_info, 0},
+	{"reboot", reboot_main, 0},
+	{"test-pi", pi_main, 0},
+	{"test-memcpy", memcpy_main, 0},
+	{"test-md5", md5_main, 0},
+	{"test-run-trace", test_run_trace_main, 0},
+	{"sys-cost", sys_cost_main, 0},
+	{"net-bandwidth", net_bandwidth_main, 0},
+	{"sig-info", sig_info_main, 0},
+	{"task-monitor", task_monitor_main, 0},
+	{"test", testcase_main, 0},
 };
 
 #define BUF_LEN 4096
@@ -381,8 +404,10 @@ static int check_in_host(void)
 		r = RUN_IN_CONTAINER;
 	else 
 		r = detect_container_by_pid_2();
-	printf("diagnose-tool is running in %s\n", r == RUN_IN_HOST ? 
-			"HOST" : "CONTAINER");
+	if (debug_mode) {
+		printf("diagnose-tool is running in %s\n", r == RUN_IN_HOST ? 
+				"HOST" : "CONTAINER");
+	}
 
 	return r == RUN_IN_HOST;
 }
@@ -434,6 +459,19 @@ static void limit_resource(void)
 	}
 }
 
+static void set_limit_as(void)
+{
+	struct rlimit rlim_new;
+
+	if (vmsize_limit == 0) {
+		rlim_new.rlim_cur = rlim_new.rlim_max = 16 * 1024 * 1024 * 1024UL;
+			if (setrlimit(RLIMIT_AS, &rlim_new) != 0) {
+				printf("set RLIMIT_AS error\n");
+				exit(errno);
+		}
+	}
+}
+
 static void report_limit(void)
 {
 	pr_limits((char *)"RLIMIT_CORE", RLIMIT_CORE);
@@ -444,16 +482,14 @@ static void report_limit(void)
 
 int main(int argc, char* argv[])
 {
-	unsigned int i;
+	unsigned int i, j, idx = 1;
 	diagnose_fp func = usage;
 	unsigned int version = -1;
 	int fd;
 	int ret;
 
 	limit_resource();
-	report_limit();
 
-	run_in_host = check_in_host();
 	fd = open("/dev/diagnose-tools", O_RDWR, 0);
 	if (fd > 0) {
 		version = ioctl(fd, DIAG_IOCTL_VERSION_ALL, 0);
@@ -475,13 +511,31 @@ int main(int argc, char* argv[])
 	linux_2_6_x = is_linux_2_6_x();
 	tzset();
 
-	for (i = 0; i < sizeof(all_funcs) / sizeof(struct diagnose_func); i++) {
-		if (strcmp(argv[1], all_funcs[i].name) == 0) {
-			func = all_funcs[i].func;
-			break;
+	for (i = 1; i < (unsigned int)argc; i++) {
+		for (j = 0; j < sizeof(all_funcs) / sizeof(struct diagnose_func); j++) {
+			if (strcmp(argv[i], all_funcs[j].name) == 0) {
+				func = all_funcs[j].func;
+				if (all_funcs[j].cont) {
+					func(argc - 1, argv + 1);
+					func = usage;
+					break;
+				} else {
+					idx = i;
+					func = all_funcs[j].func;
+					goto exec;
+				}
+			}
 		}
 	}
-	ret = func(argc - 1, argv + 1);
+
+exec:
+	set_limit_as();
+	run_in_host = check_in_host();
+	if (debug_mode) {
+		report_limit();
+	}
+
+	ret = func(argc - idx, argv + idx);
 
 	//diag_report_memory();
 

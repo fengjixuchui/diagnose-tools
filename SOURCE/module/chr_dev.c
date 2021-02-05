@@ -163,6 +163,9 @@ static long diag_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
     case DIAG_IOCTL_TYPE_SIG_INFO:
         ret = diag_ioctl_sig_info(nr, arg);
         break;
+    case DIAG_IOCTL_TYPE_TASK_MONITOR:
+        ret = diag_ioctl_task_monitor(nr, arg);
+        break;
     default:
         break;
     }
@@ -190,7 +193,11 @@ static const struct file_operations diag_fops = {
     .unlocked_ioctl = diag_ioctl,
 };
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0)
+static char *diag_devnode(struct device *dev, mode_t *mode)
+#else
 static char *diag_devnode(struct device *dev, umode_t *mode)
+#endif
 {
     if (mode)
 	    *mode = S_IRUGO | S_IRWXUGO | S_IALLUGO;

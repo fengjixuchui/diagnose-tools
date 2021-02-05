@@ -25,7 +25,7 @@ declare -a __all_case=(["1"]="sys-delay" ["2"]="sys-cost" ["3"]="sched-delay" \
 			["18"]="drop-packet" ["19"]="tcp-retrans" ["20"]="ping-delay" \
 			["21"]="rw-top" ["22"]="fs-shm" ["23"]="fs-orphan" \
 			["24"]="fs-cache" ["25"]="task-info" ["26"]="reboot" \
-			["27"]="net-bandwidth" ["28"]="sig-info"\
+			["27"]="net-bandwidth" ["28"]="sig-info" ["29"]="task-monitor" \
 			["100"]="cpu-loop" ["999"]="kern-demo" )
 
 sys_delay() {
@@ -112,8 +112,8 @@ perf() {
 		files+="${file}\n"
     		eval "$DIAG_CMD perf --report=\"out=$file\""
 	done
-	time eval "systemd-run --scope -p MemoryLimit=500M $DIAG_CMD perf --report=\"console=1\"" > perf.log << EOF
-`echo -e ${files}`
+	time eval "systemd-run --scope -p MemoryLimit=500M $DIAG_CMD --debug perf --report=\"console=1\"" > perf.log << EOF
+`echo -e "${files}"`
 EOF
 
 	eval "$DIAG_CMD perf --deactivate"
@@ -297,6 +297,12 @@ sig_info() {
 	eval "$DIAG_CMD sig-info --deactivate --activate='signum=9,11' --settings"
 	sleep 1
 	eval "$DIAG_CMD sig-info --report" > sig_info.log
+}
+
+task_monitor() {
+	eval "$DIAG_CMD task-monitor --deactivate --activate='task.a=1 task.r=1 task.d=1 interval=100' --settings"
+	sleep 1
+	eval "$DIAG_CMD task-monitor --report" > task_monitor.log
 }
 
 call_sub_cmd() {

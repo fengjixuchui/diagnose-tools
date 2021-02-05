@@ -52,6 +52,7 @@ int memcpy_main(int argc, char* argv[]);
 int md5_main(int argc, char *argv[]);
 int net_bandwidth_main(int argc, char *argv[]);
 int sig_info_main(int argc, char *argv[]);
+int task_monitor_main(int argc, char **argv);
 
 void usage_run_trace(void);
 void usage_sys_delay(void);
@@ -81,6 +82,7 @@ void usage_test_pi(void);
 void usage_test_md5(void);
 void usage_net_bandwidth(void);
 void usage_sig_info(void);
+void usage_task_monitor(void);
 
 int uprobe_main(int argc, char **argv);
 void usage_uprobe();
@@ -113,6 +115,8 @@ void diag_printf_raw_stack(int pid, int ns_pid, const char *comm,
 void diag_printf_raw_stack(int pid, int ns_pid, const char *comm,
 	struct diag_raw_stack_detail *raw_stack, int attach);
 void init_java_env(const char *agent, int pid, int ns_pid, const char *comm, std::set<int> &);
+void diag_unwind_raw_stack(int pid, int ns_pid,
+	struct diag_raw_stack_detail *raw_stack, unsigned long stack[BACKTRACE_DEPTH]);
 
 void diag_sls_time(struct timeval *tv, Json::Value &owner);
 void diag_sls_task(struct diag_task_detail *tsk_info, Json::Value &task);

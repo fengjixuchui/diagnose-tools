@@ -24,20 +24,16 @@ enum {
     JIT_TYPE = 1
 };
 
-
 struct elf_file {
     unsigned char elf_read_error;
     size_t		  eh_frame_hdr_offset;
     size_t		  fde_count;
     size_t		  table_data;
     std::string filename;
-    std::string buildid;
-    std::string mnt_ns_name;
     int type;
 
     // TODO get builid from elf header or build hash for elf
     elf_file(const std::string &name) : filename(name), type(NATIVE_TYPE) {
-        buildid = filename;
         elf_read_error = 0;
         eh_frame_hdr_offset = 0;
         fde_count = 0;
@@ -49,7 +45,6 @@ struct elf_file {
     // TODO get builid from elf header or build hash for elf
     void reset(const std::string &name) {
         filename = name;
-        buildid = name;
         elf_read_error = 0;
         eh_frame_hdr_offset = 0;
         fde_count = 0;
@@ -57,17 +52,7 @@ struct elf_file {
     }
 
     bool operator<  (const elf_file &rhs) const {
-        if (buildid == rhs.buildid) {
-            return mnt_ns_name < rhs.mnt_ns_name;
-        }
-        return buildid < rhs.buildid;
-    }
-
-    bool operator> (const elf_file &rhs) const {
-	if (buildid == rhs.buildid) {
-            return mnt_ns_name > rhs.mnt_ns_name;
-        }
-        return buildid > rhs.buildid;
+        return filename < rhs.filename;
     }
 };
 
@@ -146,6 +131,7 @@ private:
     std::set<symbol> kernel_symbols;
     std::map<int, proc_vma> machine_vma;
     std::set<int> java_procs;
+    std::map<int, std::map<unsigned long, std::string> > symbols_cache;
 public:
     bool load_kernel();
     std::set<int>& get_java_procs() { return java_procs; }
@@ -161,6 +147,10 @@ public:
     void clear_symbol_info(int);
     bool add_pid_maps(int pid, size_t start, size_t end, size_t offset, const char *name);
 
+    bool find_symbol_in_cache(int tgid, unsigned long addr, std::string &symbol);
+    bool putin_symbol_cache(int tgid, unsigned long addr, std::string &symbol);
+
+    void dump(void);
 private:
     bool load_pid_maps(int pid);
     bool load_elf(pid_t pid, const elf_file& file);

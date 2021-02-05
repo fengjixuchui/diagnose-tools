@@ -35,6 +35,7 @@
 using namespace std;
 
 class pid_cmdline pid_cmdline;
+static string unknow_symbol("UNKNOWN");
 
 void pid_cmdline::clear(void)
 {
@@ -185,6 +186,7 @@ void diag_printf_user_stack(int pid, int ns_pid, const char *comm,
 	int i;
 	symbol sym;
 	elf_file file;
+	string symbol;
 	printf("    用户态堆栈：\n");
 	if (reverse) {
 		for (i = BACKTRACE_DEPTH - 1; i >= 0; i--) {
@@ -196,51 +198,72 @@ void diag_printf_user_stack(int pid, int ns_pid, const char *comm,
 				init_java_env("/tmp/libperfmap.so", pid, ns_pid, comm, g_symbol_parser.get_java_procs());
 			}
 
+			if (g_symbol_parser.find_symbol_in_cache(pid, user_stack->stack[i], symbol)) {
+				printf("#~        0x%lx %s ([symbol])\n",
+						user_stack->stack[i],
+						symbol.c_str());
+				continue;
+			}
+
 			if (g_symbol_parser.get_symbol_info(pid, sym, file)) {
 				if (g_symbol_parser.find_elf_symbol(sym, file, pid, ns_pid)) {
 					printf("#~        0x%lx %s ([symbol])\n",
 						user_stack->stack[i],
 						sym.name.c_str());
+					g_symbol_parser.putin_symbol_cache(pid, user_stack->stack[i], sym.name);
 				} else {
 					printf("#~        0x%lx %s ([symbol])\n",
 						user_stack->stack[i],
 						"UNKNOWN");
+					g_symbol_parser.putin_symbol_cache(pid, user_stack->stack[i], unknow_symbol);
 				}
 			} else {
 				printf("#~        0x%lx %s ([symbol])\n",
 					user_stack->stack[i],
 					"UNKNOWN");
+				g_symbol_parser.putin_symbol_cache(pid, user_stack->stack[i], unknow_symbol);
 			}
 		}
 	} else {
 		for (i = 0; i < BACKTRACE_DEPTH; i++) {
-			diag_track_memory(1);
+			//diag_track_memory(1);
 			if (user_stack->stack[i] == (size_t)-1 || user_stack->stack[i] == 0) {
 				break;
 			}
 			sym.reset(user_stack->stack[i]);
-			diag_track_memory(2);
+			//diag_track_memory(2);
 			if (attach) {
 				init_java_env("/tmp/libperfmap.so", pid, ns_pid, comm, g_symbol_parser.get_java_procs());
 			}
-			diag_track_memory(3);
+			//diag_track_memory(3);
+
+			if (g_symbol_parser.find_symbol_in_cache(pid, user_stack->stack[i], symbol)) {
+				printf("#~        0x%lx %s ([symbol])\n",
+						user_stack->stack[i],
+						symbol.c_str());
+				continue;
+			}
+
 			if (g_symbol_parser.get_symbol_info(pid, sym, file)) {
-				diag_track_memory(4);
+				//diag_track_memory(4);
 				if (g_symbol_parser.find_elf_symbol(sym, file, pid, ns_pid)) {
 					printf("#~        0x%lx %s ([symbol])\n",
 						user_stack->stack[i],
 						sym.name.c_str());
+					g_symbol_parser.putin_symbol_cache(pid, user_stack->stack[i], sym.name);
 				} else {
 					printf("#~        0x%lx %s ([symbol])\n",
 						user_stack->stack[i],
 						"UNKNOWN");
+					g_symbol_parser.putin_symbol_cache(pid, user_stack->stack[i], unknow_symbol);
 				}
-				diag_track_memory(5);
+				//diag_track_memory(5);
 			} else {
-				diag_track_memory(4);
+				//diag_track_memory(4);
 				printf("#~        0x%lx %s ([symbol])\n",
 					user_stack->stack[i],
 					"UNKNOWN");
+				g_symbol_parser.putin_symbol_cache(pid, user_stack->stack[i], unknow_symbol);
 			}
 		}
 	}
@@ -261,18 +284,29 @@ void diag_printf_user_stack(int pid, int ns_pid, const char *comm,
 static int unwind_frame_callback(struct unwind_entry *entry, void *arg)
 {
     symbol sym;
+	string symbol;
     elf_file file;
 
     sym.reset(entry->ip);
 
+	if (g_symbol_parser.find_symbol_in_cache(entry->pid, entry->ip, symbol)) {
+		printf("#~        0x%lx %s ([symbol])\n",
+				entry->ip,
+				symbol.c_str());
+		return 0;
+	}
+
     if (g_symbol_parser.get_symbol_info(entry->pid, sym, file)) {
         if (g_symbol_parser.find_elf_symbol(sym, file, entry->pid, entry->pid_ns)) {
 			printf("#~        0x%lx %s ([symbol])\n", entry->ip, sym.name.c_str());
+			g_symbol_parser.putin_symbol_cache(entry->pid, entry->ip, sym.name);
         } else {
             printf("#~        0x%lx %s ([symbol])\n", entry->ip, "(unknown)[symbol]");
+			g_symbol_parser.putin_symbol_cache(entry->pid, entry->ip, unknow_symbol);
         }
     } else {
         printf("#~        0x%lx %s ([symbol])\n", entry->ip, "(unknown)[vma,elf]");
+		g_symbol_parser.putin_symbol_cache(entry->pid, entry->ip, unknow_symbol);
     }
 
     return 0;
@@ -303,6 +337,48 @@ void diag_printf_raw_stack(int pid, int ns_pid, const char *comm,
 	struct diag_raw_stack_detail *raw_stack)
 {
 	diag_printf_raw_stack(pid, ns_pid, comm, raw_stack, 1);
+}
+
+struct unwind_cb_arg {
+	unsigned long *stack;
+	int stack_deeps;
+	int index;
+};
+
+static int unwind_frame_callback_2(struct unwind_entry *entry, void *arg)
+{
+	struct unwind_cb_arg *cb_arg = (struct unwind_cb_arg *)arg;
+
+	if (cb_arg->index >= cb_arg->stack_deeps)
+		return 0;
+
+	cb_arg->stack[cb_arg->index] = entry->ip;
+	cb_arg->index++;
+
+	return 0;
+}
+
+void diag_unwind_raw_stack(int pid, int ns_pid,
+	struct diag_raw_stack_detail *raw_stack, unsigned long stack[BACKTRACE_DEPTH])
+{
+    struct perf_sample stack_sample;
+    static u64 regs_buf[3];
+	struct unwind_cb_arg cb_arg;
+
+	memset(&cb_arg, 0, sizeof(cb_arg));
+	cb_arg.stack_deeps = BACKTRACE_DEPTH;
+	cb_arg.stack = stack;
+
+	stack_sample.user_stack.offset = 0;
+	stack_sample.user_stack.size = raw_stack->stack_size;
+	stack_sample.user_stack.data = (char *)&raw_stack->stack[0];
+	stack_sample.user_regs.regs = regs_buf;
+	stack_sample.user_regs.regs[PERF_REG_IP] = raw_stack->ip;
+	stack_sample.user_regs.regs[PERF_REG_SP] = raw_stack->sp;
+	stack_sample.user_regs.regs[PERF_REG_BP] = raw_stack->bp;
+	unwind__get_entries(unwind_frame_callback_2, (void *)&cb_arg, &g_symbol_parser,
+			pid, ns_pid,
+			&stack_sample);
 }
 
 void diag_sls_time(struct timeval *tv, Json::Value &owner)
@@ -489,6 +565,7 @@ void diag_sls_user_stack(pid_t pid, pid_t ns_pid, const char *comm,
 {
 	int i;
 	symbol sym;
+	string symbol;
 	elf_file file;
 	char buf[255];
 
@@ -500,14 +577,25 @@ void diag_sls_user_stack(pid_t pid, pid_t ns_pid, const char *comm,
 		if (attach) {
 			init_java_env("/tmp/libperfmap.so", pid, ns_pid, comm, g_symbol_parser.get_java_procs());
 		}
+
+		if (g_symbol_parser.find_symbol_in_cache(pid, user_stack->stack[i], symbol)) {
+			printf("#~        0x%lx %s ([symbol])\n",
+					user_stack->stack[i],
+					symbol.c_str());
+			continue;
+		}
+
 		if (g_symbol_parser.get_symbol_info(pid, sym, file)) {
 			if (g_symbol_parser.find_elf_symbol(sym, file, pid, ns_pid)) {
 				snprintf(buf, 255, "%s", sym.name.c_str());
+				g_symbol_parser.putin_symbol_cache(pid, user_stack->stack[i], sym.name);
 			} else {
 				snprintf(buf, 255, "%s", "UNKNOWN");
+				g_symbol_parser.putin_symbol_cache(pid, user_stack->stack[i], unknow_symbol);
 			}
 		} else {
 			snprintf(buf, 255, "%s", "UNKNOWN");
+			g_symbol_parser.putin_symbol_cache(pid, user_stack->stack[i], unknow_symbol);
 		}
 		task["user_stack"].append(buf);
 	}
