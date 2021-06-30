@@ -141,7 +141,7 @@ void diag_printk_all_partitions(void)
                                bdevt_str(part_devt(part), devt_buf),
                                 (unsigned long long)part->nr_sects >> 1,
                                orig_disk_name(disk, part->partno, name_buf));
-#else
+#elif LINUX_VERSION_CODE < KERNEL_VERSION(5,8,0)
 			diag_trace_printk("%s%s %10llu %s %s", is_part0 ? "" : "  ",
 			       bdevt_str(part_devt(part), devt_buf),
 				(unsigned long long)part_nr_sects_read(part) >> 1,
@@ -261,7 +261,7 @@ void trace_file_nolock_cgroups(int pre, struct diag_trace_file *file)
 #elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,12,0)
 static inline int orig_diag_cgroup_name(struct cgroup *cgrp, char *buf, size_t buflen)
 {
-	if (orig_kernfs_name) {
+	if (orig_kernfs_name && cgrp && cgrp->kn) {
 		return orig_kernfs_name(cgrp->kn, buf, buflen);
 	} else {
 		return 0;
@@ -476,7 +476,7 @@ unsigned int ipstr2int(const char *ipstr)
 	unsigned int a, b, c, d;
 	unsigned int ip = 0;
 	int count;
-	
+
 	count = sscanf(ipstr, "%u.%u.%u.%u", &a, &b, &c, &d);
 	if (count == 4) {
 		a = (a << 24);
@@ -530,18 +530,41 @@ char *mac2str(const unsigned char *mac, char *mac_str, const unsigned int mac_st
 void diag_task_brief(struct task_struct *tsk, struct diag_task_detail *detail)
 {
 	struct pid_namespace *ns;
-	
-	if (detail)
-		memset(detail, 0, sizeof(struct diag_task_detail));
-	if (!detail || !tsk)
+	struct pt_regs *regs;
+	struct task_struct *leader;
+
+	if (!detail)
 		return;
+
+	memset(detail, 0, sizeof(struct diag_task_detail));
+
+	if (!tsk || tsk->exit_state == EXIT_ZOMBIE)
+		return;
+	leader = tsk->group_leader;
+	if (!leader || leader->exit_state == EXIT_ZOMBIE) {
+		return;
+	}
+
+	if (tsk != current || !tsk->mm) {
+		detail->syscallno = -1;
+	} else {
+		regs = task_pt_regs(tsk);
+		detail->syscallno = syscall_get_nr(tsk, regs);
+	}
+
+	if (tsk->sched_class == orig_idle_sched_class)
+		detail->sys_task = 2;
+	else if (!tsk->mm)
+		detail->sys_task = 1;
+	else
+		detail->sys_task = 0;
 
 	detail->pid = tsk->pid;
 	detail->tgid = tsk->tgid;
 	detail->state = tsk->state;
 	detail->task_type = diag_get_task_type(tsk);
 	ns = task_active_pid_ns(tsk);
-	if (ns) {
+	if (ns && ns != &init_pid_ns) {
 		detail->container_pid = task_pid_nr_ns(tsk, ns);
 		detail->container_tgid = task_tgid_nr_ns(tsk, ns);
 	} else {
@@ -554,6 +577,7 @@ void diag_task_brief(struct task_struct *tsk, struct diag_task_detail *detail)
 	diag_cgroup_name(tsk, detail->cgroup_cpuset, CGROUP_NAME_LEN, 1);
 
 	detail->cgroup_buf[CGROUP_NAME_LEN - 1] = 0;
+	detail->cgroup_cpuset[CGROUP_NAME_LEN - 1] = 0;
 }
 
 void printk_task_brief(struct diag_task_detail *detail)

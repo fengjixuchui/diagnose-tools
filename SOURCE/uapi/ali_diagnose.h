@@ -17,6 +17,11 @@
 
 struct pt_regs;
 
+struct diag_timespec {
+	unsigned long tv_sec;
+	unsigned long tv_usec;
+};
+
 #ifndef __KERNEL__
 #include <unistd.h>
 #include <fcntl.h>
@@ -52,8 +57,8 @@ extern unsigned long run_in_host;
 extern unsigned long debug_mode;
 #endif
 
-#define XBY_VERSION					"diagnose-tools 2.1-release"
-#define DIAG_VERSION		((2 << 24) | (1 << 16) | 0xffff)
+#define XBY_VERSION					"diagnose-tools 3.0-rc1"
+#define DIAG_VERSION		((3 << 24) | (0 << 16) | 0x1)
 
 #define DIAG_DEV_NAME "diagnose-tools"
 
@@ -486,6 +491,11 @@ struct diag_task_detail {
 	int container_tgid;
 	long state;
 	int task_type;
+	unsigned long syscallno;
+	/**
+	 * 0->user 1->sys 2->idle
+	 */
+	unsigned long sys_task;
 	char comm[TASK_COMM_LEN];
 };
 

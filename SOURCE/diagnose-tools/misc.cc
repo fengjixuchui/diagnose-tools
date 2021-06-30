@@ -65,7 +65,7 @@ std::string & pid_cmdline::get_pid_cmdline(int pid)
 	return cmdlines[pid];
 }
 
-void diag_printf_time(struct timeval *tv)
+void diag_printf_time(struct diag_timespec *tv)
 {
 	printf("    时间：[%lu:%lu].\n",
 		tv->tv_sec, tv->tv_usec);
@@ -193,6 +193,14 @@ void diag_printf_user_stack(int pid, int ns_pid, const char *comm,
 			if (user_stack->stack[i] == (size_t)-1 || user_stack->stack[i] == 0) {
 				continue;
 			}
+
+			if (g_symbol_parser.user_symbol == 0) {
+				printf("#~        0x%lx 0x%lx ([symbol])\n",
+							user_stack->stack[i],
+							user_stack->stack[i]);
+				continue;
+			}
+
 			sym.reset(user_stack->stack[i]);
 			if (attach) {
 				init_java_env("/tmp/libperfmap.so", pid, ns_pid, comm, g_symbol_parser.get_java_procs());
@@ -205,7 +213,7 @@ void diag_printf_user_stack(int pid, int ns_pid, const char *comm,
 				continue;
 			}
 
-			if (g_symbol_parser.get_symbol_info(pid, sym, file)) {
+		    if (g_symbol_parser.get_symbol_info(pid, sym, file)) {
 				if (g_symbol_parser.find_elf_symbol(sym, file, pid, ns_pid)) {
 					printf("#~        0x%lx %s ([symbol])\n",
 						user_stack->stack[i],
@@ -230,6 +238,14 @@ void diag_printf_user_stack(int pid, int ns_pid, const char *comm,
 			if (user_stack->stack[i] == (size_t)-1 || user_stack->stack[i] == 0) {
 				break;
 			}
+
+			if (g_symbol_parser.user_symbol == 0) {
+				printf("#~        0x%lx 0x%lx ([symbol])\n",
+							user_stack->stack[i],
+							user_stack->stack[i]);
+				continue;
+			}
+
 			sym.reset(user_stack->stack[i]);
 			//diag_track_memory(2);
 			if (attach) {
@@ -328,7 +344,7 @@ void diag_printf_raw_stack(int pid, int ns_pid, const char *comm,
 	stack_sample.user_regs.regs[PERF_REG_IP] = raw_stack->ip;
 	stack_sample.user_regs.regs[PERF_REG_SP] = raw_stack->sp;
 	stack_sample.user_regs.regs[PERF_REG_BP] = raw_stack->bp;
-	unwind__get_entries(unwind_frame_callback, &unwind_arg, &g_symbol_parser, 
+	unwind__get_entries(unwind_frame_callback, &unwind_arg, &g_symbol_parser,
 			pid, ns_pid,
 			&stack_sample);
 }
@@ -381,7 +397,7 @@ void diag_unwind_raw_stack(int pid, int ns_pid,
 			&stack_sample);
 }
 
-void diag_sls_time(struct timeval *tv, Json::Value &owner)
+void diag_sls_time(struct diag_timespec *tv, Json::Value &owner)
 {
 	owner["tv_sec"] = Json::Value(tv->tv_sec);
 	owner["tv_usec"] = Json::Value(tv->tv_usec);
@@ -402,7 +418,8 @@ void diag_sls_task(struct diag_task_detail *tsk_info, Json::Value &task)
 	} else {
 		task["state"] = Json::Value("S");
 	}
-
+	task["syscallno"] = Json::Value(tsk_info->syscallno);
+	task["sys_task"] = Json::Value(tsk_info->sys_task);
 	task["comm"] = Json::Value(tsk_info->comm);
 }
 
@@ -437,7 +454,7 @@ int log_config(char *arg, char *sls_file, int *p_syslog_enabled)
 	return 1;
 }
 
-void write_syslog(int enabled, const char mod[], struct timeval *tv, unsigned long id, int seq, Json::Value &root)
+void write_syslog(int enabled, const char mod[], struct diag_timespec *tv, unsigned long id, int seq, Json::Value &root)
 {
 	std::string str_log;
 	stringstream ss;
@@ -460,7 +477,7 @@ void write_syslog(int enabled, const char mod[], struct timeval *tv, unsigned lo
 	return;
 }
 
-void write_file(char *sls_file, const char mod[], struct timeval *tv, unsigned long id, int seq, Json::Value &root)
+void write_file(char *sls_file, const char mod[], struct diag_timespec *tv, unsigned long id, int seq, Json::Value &root)
 {
 	ofstream os;
 	Json::StreamWriterBuilder builder;
@@ -504,8 +521,8 @@ void diag_ip_addr_to_str(unsigned char *ip_addr,const char type[], Json::Value &
 }
 
 static string& replace_all(string& str, const string& old_value, const string& new_value)
-{     
-	while(true) {     
+{
+	while(true) {
 		string::size_type pos(0);
 		if((pos=str.find(old_value)) != string::npos)
 		{
@@ -514,7 +531,7 @@ static string& replace_all(string& str, const string& old_value, const string& n
 			break;
 		}
 	}
-     
+
 	return str;
 }
 
@@ -573,15 +590,21 @@ void diag_sls_user_stack(pid_t pid, pid_t ns_pid, const char *comm,
 		if (user_stack->stack[i] == (size_t)-1 || user_stack->stack[i] == 0) {
 			continue;
 		}
+
+		if (g_symbol_parser.user_symbol == 0) {
+			snprintf(buf, 255, "%lx", user_stack->stack[i]);
+			task["user_stack"].append(buf);
+			continue;
+		}
+
 		sym.reset(user_stack->stack[i]);
 		if (attach) {
 			init_java_env("/tmp/libperfmap.so", pid, ns_pid, comm, g_symbol_parser.get_java_procs());
 		}
 
 		if (g_symbol_parser.find_symbol_in_cache(pid, user_stack->stack[i], symbol)) {
-			printf("#~        0x%lx %s ([symbol])\n",
-					user_stack->stack[i],
-					symbol.c_str());
+			snprintf(buf, 255, "%s", symbol.c_str());
+			task["user_stack"].append(buf);
 			continue;
 		}
 
@@ -685,7 +708,7 @@ unsigned int ipstr2int(const char *ipstr)
 	unsigned int a, b, c, d;
 	unsigned int ip = 0;
 	int count;
-	
+
 	count = sscanf(ipstr, "%u.%u.%u.%u", &a, &b, &c, &d);
 	if (count == 4) {
 		a = (a << 24);
@@ -736,4 +759,16 @@ int is_linux_2_6_x(void)
     }
 
     return 0;
+}
+
+#include <sys/time.h>
+extern "C" {
+void diag_gettimeofday(struct diag_timespec *tv, struct timezone *tz)
+{
+	struct timeval ts;
+	
+	gettimeofday(&ts, tz);
+	tv->tv_sec = ts.tv_sec;
+	tv->tv_usec = ts.tv_usec;
+}
 }

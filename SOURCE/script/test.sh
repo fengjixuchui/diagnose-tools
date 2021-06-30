@@ -25,8 +25,7 @@ declare -a __all_case=(["1"]="sys-delay" ["2"]="sys-cost" ["3"]="sched-delay" \
 			["18"]="drop-packet" ["19"]="tcp-retrans" ["20"]="ping-delay" \
 			["21"]="rw-top" ["22"]="fs-shm" ["23"]="fs-orphan" \
 			["24"]="fs-cache" ["25"]="task-info" ["26"]="reboot" \
-			["27"]="net-bandwidth" ["28"]="sig-info" ["29"]="task-monitor" \
-			["100"]="cpu-loop" ["999"]="kern-demo" )
+			["27"]="net-bandwidth" ["28"]="sig-info" ["999"]="kern-demo" )
 
 sys_delay() {
 	eval "$DIAG_CMD sys-delay --deactivate --activate='style=0' --test --report --deactivate --settings" > sys-delay.log
@@ -71,11 +70,19 @@ irq_trace() {
 
 load_monitor() {
 	eval "$DIAG_CMD load-monitor --deactivate --activate='style=1 load=1' --settings"
-	sleep 2
+	sleep 1
 	eval "$DIAG_CMD load-monitor --report --deactivate" > load-monitor.log
+	eval "$DIAG_CMD load-monitor --deactivate --activate='style=1 load=1 mass=1' --settings"
+	sleep 5
+	eval "$DIAG_CMD load-monitor --report --deactivate" > load-monitor.log
+
 	eval "$DIAG_CMD flame --input=load-monitor.log --output=load-monitor.svg"
 	echo "火焰图位于load-monitor.svg"
 
+	eval "$DIAG_CMD load-monitor --deactivate --activate='style=1 load=1' --settings"
+	sleep 2
+	eval "$DIAG_CMD load-monitor --report='json=1 flame=0'" > load-monitor.json
+	eval "$DIAG_CMD load-monitor --deactivate"
 #	eval "$DIAG_CMD load-monitor --style=0"
 #	eval "$DIAG_CMD load-monitor --activate"
 #	eval "$DIAG_CMD load-monitor --load=1"
@@ -89,14 +96,14 @@ run_trace() {
 	cat run-trace.log | awk '{if (substr($1,1,2) == "**") {print substr($0, 3)}}' | /usr/diagnose-tools/flame-graph/flamegraph.pl > run-trace.svg
 	echo "火焰图位于run-trace.svg"
 
-	TEST_ADDR="`objdump -s -d $DIAG_BINPATH | grep '<_ZL6mytestv>:' | awk '{printf $1}' | tr '[a-z]' '[A-Z]'`"
+	TEST_ADDR="`objdump -s -d $DIAG_BINPATH | grep '<mytest>:' | awk '{printf $1}' | tr '[a-z]' '[A-Z]'`"
         TEST_OFFSET=`echo "obase=10; ibase=16; $TEST_ADDR - 400000" | bc`
 	TEST_END=$[$TEST_OFFSET+10]
 
 	eval "$DIAG_CMD test-run-trace --type=2 --count=10 &"
 	TEST_PID=`ps aux | grep diagnose-tools | grep test-run-trace | awk '{printf $2}'`
 
-	eval "$DIAG_CMD run-trace --uprobe=\"tgid=$TEST_PID start-file=$DIAG_BINPATH start-offset=$TEST_OFFSET stop-file=$DIAG_BINPATH stop-offset=$TEST_END\" --activate --settings"
+	eval "$DIAG_CMD run-trace --uprobe=\"tgid=$TEST_PID start-file=$DIAG_BINPATH start-offset=$TEST_OFFSET stop-file=$DIAG_BINPATH stop-offset=$TEST_END\" --activate=\"raw-stack=1\" --settings"
 	
 	sleep 10
 	eval "$DIAG_CMD run-trace --report --deactivate" > run-trace.log
@@ -115,6 +122,10 @@ perf() {
 	time eval "systemd-run --scope -p MemoryLimit=500M $DIAG_CMD --debug perf --report=\"console=1\"" > perf.log << EOF
 `echo -e "${files}"`
 EOF
+
+	eval "$DIAG_CMD perf --deactivate --activate='raw-stack=0 style=2 idle=1 bvt=1' --settings"
+	sleep 1
+	time eval "systemd-run --scope -p MemoryLimit=500M $DIAG_CMD perf --report=\"json=1 flame=0\"" > perf.json
 
 	eval "$DIAG_CMD perf --deactivate"
 

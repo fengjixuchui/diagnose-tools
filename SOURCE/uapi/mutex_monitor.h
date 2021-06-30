@@ -27,12 +27,13 @@ struct diag_mutex_monitor_settings {
 	unsigned int activated;
 	unsigned int verbose;
 	unsigned int style;
-	unsigned int threshold;
+	unsigned int threshold_mutex;
+	unsigned int threshold_rw_sem;
 };
 
 struct mutex_monitor_detail {
 	int et_type;
-	struct timeval tv;
+	struct diag_timespec tv;
 	unsigned long delay_ns;
 	void *lock;
 	struct diag_task_detail task;

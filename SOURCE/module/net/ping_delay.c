@@ -100,7 +100,7 @@ static void trace_events(int action, void *func)
 		struct ping_delay_event event;
 
 		event.et_type = et_ping_delay_event;
-		do_gettimeofday(&event.tv);
+		do_diag_gettimeofday(&event.tv);
 		event.func = (unsigned long)func;
 		event.action = action;
 
@@ -326,7 +326,7 @@ __maybe_unused static struct skb_info *find_alloc_desc(const struct sk_buff *skb
 	return info;
 }
 
-static void inspect_packet(const struct sk_buff *skb, const struct iphdr *iphdr, enum ping_delay_packet_step step)
+static noinline void inspect_packet(const struct sk_buff *skb, const struct iphdr *iphdr, enum ping_delay_packet_step step)
 {
 	int source = 0;
 	int dest = 0;
@@ -334,6 +334,9 @@ static void inspect_packet(const struct sk_buff *skb, const struct iphdr *iphdr,
 	struct icmphdr *icmph = NULL;
 
 	if (step >= PD_TRACK_COUNT)
+		return;
+	if (skb->len < sizeof(struct iphdr) || !iphdr
+        || iphdr->ihl * 4 < sizeof(struct iphdr))
 		return;
 
 	if (iphdr->protocol == IPPROTO_ICMP) {
@@ -354,7 +357,7 @@ static void inspect_packet(const struct sk_buff *skb, const struct iphdr *iphdr,
 		struct ping_delay_detail detail;
 
 		detail.et_type = et_ping_delay_detail;
-		do_gettimeofday(&detail.tv);
+		do_diag_gettimeofday(&detail.tv);
 		detail.saddr = source;
 		detail.daddr = dest;
 		detail.echo_id = be16_to_cpu(icmph->un.echo.id);
@@ -1239,8 +1242,14 @@ int new_ip_send_skb(struct sk_buff *skb)
 
 	return ret;
 }
-static void trace_net_dev_xmit_hit(void *ignore, struct sk_buff *skb,
+
+#if KERNEL_VERSION(3, 10, 0) <= LINUX_VERSION_CODE
+__maybe_unused static void trace_net_dev_xmit_hit(void *ignore, struct sk_buff *skb,
 								   int rc, struct net_device *dev, unsigned int skb_len)
+#else
+__maybe_unused static void trace_net_dev_xmit_hit(struct sk_buff *skb,
+								   int rc, struct net_device *dev, unsigned int skb_len)
+#endif
 {
 	struct iphdr *iphdr;
 
@@ -1251,8 +1260,23 @@ static void trace_net_dev_xmit_hit(void *ignore, struct sk_buff *skb,
 		return;
 
 	iphdr = ip_hdr(skb);
+	if (virt_addr_valid(iphdr)) {
+		inspect_packet(skb, iphdr, PD_SEND_SKB);
+	}
+}
+
+#if KERNEL_VERSION(4, 9, 0) <= LINUX_VERSION_CODE
+__maybe_unused static void trace_net_dev_start_xmit_hit(void *ignore, struct sk_buff *skb, struct net_device *dev)
+{
+	struct iphdr *iphdr;
+
+	if (!ping_delay_settings.activated)
+		return;
+
+	iphdr = ip_hdr(skb);
 	inspect_packet(skb, iphdr, PD_SEND_SKB);
 }
+#endif
 
 static int kprobe_eth_type_trans_pre(struct kprobe *p, struct pt_regs *regs)
 {
@@ -1784,7 +1808,12 @@ static int __activate_ping_delay(void)
 
 	clean_data();
 
+#if KERNEL_VERSION(4, 9, 0) <= LINUX_VERSION_CODE
+	hook_tracepoint("net_dev_start_xmit", trace_net_dev_start_xmit_hit, NULL);
+#else
 	hook_tracepoint("net_dev_xmit", trace_net_dev_xmit_hit, NULL);
+#endif
+
 	hook_kprobe(&kprobe_dev_queue_xmit, "dev_queue_xmit",
 				kprobe_dev_queue_xmit_pre, NULL);
 	hook_kprobe(&kprobe_eth_type_trans, "eth_type_trans",
@@ -1829,7 +1858,12 @@ out_variant_buffer:
 
 static void __deactivate_ping_delay(void)
 {
+#if KERNEL_VERSION(4, 9, 0) <= LINUX_VERSION_CODE
+	unhook_tracepoint("net_dev_start_xmit", trace_net_dev_start_xmit_hit, NULL);
+#else
 	unhook_tracepoint("net_dev_xmit", trace_net_dev_xmit_hit, NULL);
+#endif
+
 	unhook_kprobe(&kprobe_dev_queue_xmit);
 	unhook_kprobe(&kprobe_eth_type_trans);
 	unhook_kprobe(&kprobe_napi_gro_receive);
@@ -1955,7 +1989,7 @@ static ssize_t dump_data(void)
 
 	list_for_each_entry(this, &header, list) {
 		summary.et_type = et_ping_delay_summary;
-		do_gettimeofday(&summary.tv);
+		do_diag_gettimeofday(&summary.tv);
 		summary.saddr = this->saddr;
 		summary.daddr = this->daddr;
 		summary.echo_id = this->echo_id;
